@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import cinematicBackdrop from './assets/images/tame_impala_person_sky_1793799892976.jpg';
 import { ViewMode, TrackData, VisualSettings } from './types';
 import { TRACK_CATALOG } from './data/tracks';
+import { PlaybackClock } from './services/playback/PlaybackClock';
 import {
   findActiveLyricIndex,
   findActiveChapterIndex,
@@ -30,37 +31,41 @@ export default function App() {
     intensity: 0.85,
   });
 
-  // Track playback timer loop
-  const lastTimeRef = useRef<number>(performance.now());
+  // Demo playback is driven by the same monotonic clock planned for real providers.
+  const playbackClockRef = useRef<PlaybackClock | null>(null);
+  if (!playbackClockRef.current) {
+    const now = performance.now();
+    playbackClockRef.current = new PlaybackClock();
+    playbackClockRef.current.synchronize({
+      trackId: currentTrack.id,
+      positionMs: 102000,
+      durationMs: currentTrack.durationMs,
+      isPlaying: true,
+      receivedAtMonotonicMs: now,
+    });
+  }
   const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     const loop = (now: number) => {
-      const delta = now - lastTimeRef.current;
-      lastTimeRef.current = now;
-
-      if (isPlaying) {
-        setProgressMs((prev) => {
-          const next = prev + delta;
-          if (next >= currentTrack.durationMs) {
-            return 0; // loop track
-          }
-          return next;
-        });
+      const nextPosition = playbackClockRef.current!.getPosition(now);
+      if (nextPosition >= currentTrack.durationMs) {
+        // Preserve the prototype's repeat behavior without letting the clock drift.
+        playbackClockRef.current!.seek(0, now);
+        setProgressMs(0);
+      } else {
+        setProgressMs(nextPosition);
       }
-
       animationFrameRef.current = requestAnimationFrame(loop);
     };
 
-    lastTimeRef.current = performance.now();
     animationFrameRef.current = requestAnimationFrame(loop);
-
     return () => {
-      if (animationFrameRef.current) {
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPlaying, currentTrack.durationMs]);
+  }, [currentTrack.durationMs]);
 
   // Derived state
   const activeLyricIndex = findActiveLyricIndex(currentTrack.lyrics, progressMs);
@@ -71,26 +76,43 @@ export default function App() {
 
   // Playback control handlers
   const handleTogglePlay = useCallback(() => {
-    setIsPlaying((prev) => !prev);
-  }, []);
+    const now = performance.now();
+    if (isPlaying) playbackClockRef.current!.pause(now);
+    else playbackClockRef.current!.play(now);
+    setIsPlaying(!isPlaying);
+  }, [isPlaying]);
 
   const handleSeek = useCallback((newMs: number) => {
-    setProgressMs(Math.max(0, Math.min(currentTrack.durationMs, newMs)));
+    const now = performance.now();
+    const position = Math.max(0, Math.min(currentTrack.durationMs, newMs));
+    playbackClockRef.current!.seek(position, now);
+    setProgressMs(position);
   }, [currentTrack.durationMs]);
+
+  const handleSelectTrack = useCallback((track: TrackData) => {
+    const now = performance.now();
+    playbackClockRef.current!.synchronize({
+      trackId: track.id,
+      positionMs: 0,
+      durationMs: track.durationMs,
+      isPlaying,
+      receivedAtMonotonicMs: now,
+    });
+    setCurrentTrack(track);
+    setProgressMs(0);
+  }, [isPlaying]);
 
   const handlePreviousTrack = useCallback(() => {
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
     const prevIndex = (currentIndex - 1 + TRACK_CATALOG.length) % TRACK_CATALOG.length;
-    setCurrentTrack(TRACK_CATALOG[prevIndex]);
-    setProgressMs(0);
-  }, [currentTrack.id]);
+    handleSelectTrack(TRACK_CATALOG[prevIndex]);
+  }, [currentTrack.id, handleSelectTrack]);
 
   const handleNextTrack = useCallback(() => {
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
     const nextIndex = (currentIndex + 1) % TRACK_CATALOG.length;
-    setCurrentTrack(TRACK_CATALOG[nextIndex]);
-    setProgressMs(0);
-  }, [currentTrack.id]);
+    handleSelectTrack(TRACK_CATALOG[nextIndex]);
+  }, [currentTrack.id, handleSelectTrack]);
 
   const handleToggleMute = useCallback(() => {
     setVolume((prev) => (prev > 0 ? 0 : 0.8));
@@ -366,8 +388,7 @@ export default function App() {
                     track={currentTrack}
                     tracks={TRACK_CATALOG}
                     onSelectTrack={(t) => {
-                      setCurrentTrack(t);
-                      setProgressMs(0);
+                      handleSelectTrack(t);
                     }}
                     progressMs={progressMs}
                     isPlaying={isPlaying}
@@ -556,8 +577,7 @@ export default function App() {
                 track={currentTrack}
                 tracks={TRACK_CATALOG}
                 onSelectTrack={(t) => {
-                  setCurrentTrack(t);
-                  setProgressMs(0);
+                  handleSelectTrack(t);
                 }}
                 progressMs={progressMs}
                 isPlaying={isPlaying}
