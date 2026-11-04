@@ -1,0 +1,6 @@
+{
+  "name": "SELVA — Visual Music Companion",
+  "description": "Desktop audiovisual companion that transforms music into cinematic montage, kinetic typography, and synchronized atmosphere.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

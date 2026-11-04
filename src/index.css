@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-editorial: "Syne", sans-serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "Space Mono", monospace;
+}
+
+/* Film grain overlay generator */
+.film-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+}
+
+.concrete-canvas {
+  background-color: #DAD7D1;
+  background-image: 
+    radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.055'/%3E%3C/svg%3E");
+  background-size: 24px 24px, 180px 180px;
+}
+
+.subtle-paper {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.07) 1px, transparent 0);
+  background-size: 18px 18px;
+}
+
+.dot-matrix-column {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.22) 1.5px, transparent 0);
+  background-size: 8px 12px;
+}
+
+/* Subtle point-glitch on transient onsets */
+.point-glitch {
+  animation: glitch-burst 0.16s ease-in-out;
+}
+
+@keyframes glitch-burst {
+  0% { transform: translate(0, 0); filter: contrast(100%); }
+  25% { transform: translate(-3px, 1px); filter: contrast(130%) hue-rotate(90deg); }
+  50% { transform: translate(2px, -2px); filter: contrast(120%) invert(10%); }
+  75% { transform: translate(-1px, 2px); filter: contrast(110%); }
+  100% { transform: translate(0, 0); filter: contrast(100%); }
+}
+
+/* Scanline / tape texture */
+.crt-scanlines {
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+  background-size: 100% 4px;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
