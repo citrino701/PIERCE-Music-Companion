@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import cinematicBackdrop from './assets/images/tame_impala_person_sky_1793799892976.jpg';
 import { ViewMode, TrackData, VisualSettings } from './types';
 import { TRACK_CATALOG } from './data/tracks';
-import { PlaybackClock } from './services/playback/PlaybackClock';
+import { DemoPlaybackProvider } from './services/playback/DemoPlaybackProvider';
 import {
   findActiveLyricIndex,
   findActiveChapterIndex,
@@ -31,41 +31,26 @@ export default function App() {
     intensity: 0.85,
   });
 
-  // Demo playback is driven by the same monotonic clock planned for real providers.
-  const playbackClockRef = useRef<PlaybackClock | null>(null);
-  if (!playbackClockRef.current) {
-    const now = performance.now();
-    playbackClockRef.current = new PlaybackClock();
-    playbackClockRef.current.synchronize({
-      trackId: currentTrack.id,
-      positionMs: 102000,
-      durationMs: currentTrack.durationMs,
-      isPlaying: true,
-      receivedAtMonotonicMs: now,
-    });
+  // The demo uses the same provider contract reserved for future integrations.
+  const playbackProviderRef = useRef<DemoPlaybackProvider | null>(null);
+  if (!playbackProviderRef.current) {
+    playbackProviderRef.current = new DemoPlaybackProvider(currentTrack, 102000, true);
   }
-  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const loop = (now: number) => {
-      const nextPosition = playbackClockRef.current!.getPosition(now);
-      if (nextPosition >= currentTrack.durationMs) {
-        // Preserve the prototype's repeat behavior without letting the clock drift.
-        playbackClockRef.current!.seek(0, now);
-        setProgressMs(0);
-      } else {
-        setProgressMs(nextPosition);
-      }
-      animationFrameRef.current = requestAnimationFrame(loop);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(loop);
+    const provider = playbackProviderRef.current!;
+    const unsubscribe = provider.subscribe((snapshot) => {
+      if (snapshot.track) setCurrentTrack(snapshot.track);
+      setProgressMs(snapshot.progressMs);
+      setIsPlaying(snapshot.isPlaying);
+      if (snapshot.volume !== null) setVolume(snapshot.volume);
+    });
+    void provider.connect();
     return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      unsubscribe();
+      void provider.disconnect();
     };
-  }, [currentTrack.durationMs]);
+  }, []);
 
   // Derived state
   const activeLyricIndex = findActiveLyricIndex(currentTrack.lyrics, progressMs);
@@ -76,31 +61,19 @@ export default function App() {
 
   // Playback control handlers
   const handleTogglePlay = useCallback(() => {
-    const now = performance.now();
-    if (isPlaying) playbackClockRef.current!.pause(now);
-    else playbackClockRef.current!.play(now);
-    setIsPlaying(!isPlaying);
+    const provider = playbackProviderRef.current!;
+    if (isPlaying) void provider.pause();
+    else void provider.play();
   }, [isPlaying]);
 
   const handleSeek = useCallback((newMs: number) => {
-    const now = performance.now();
     const position = Math.max(0, Math.min(currentTrack.durationMs, newMs));
-    playbackClockRef.current!.seek(position, now);
-    setProgressMs(position);
+    void playbackProviderRef.current!.seek(position);
   }, [currentTrack.durationMs]);
 
   const handleSelectTrack = useCallback((track: TrackData) => {
-    const now = performance.now();
-    playbackClockRef.current!.synchronize({
-      trackId: track.id,
-      positionMs: 0,
-      durationMs: track.durationMs,
-      isPlaying,
-      receivedAtMonotonicMs: now,
-    });
-    setCurrentTrack(track);
-    setProgressMs(0);
-  }, [isPlaying]);
+    void playbackProviderRef.current!.selectTrack(track);
+  }, []);
 
   const handlePreviousTrack = useCallback(() => {
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
@@ -115,8 +88,9 @@ export default function App() {
   }, [currentTrack.id, handleSelectTrack]);
 
   const handleToggleMute = useCallback(() => {
-    setVolume((prev) => (prev > 0 ? 0 : 0.8));
-  }, []);
+    const nextVolume = volume > 0 ? 0 : 0.8;
+    playbackProviderRef.current!.setVolume(nextVolume);
+  }, [volume]);
 
   const handleUpdateVisualSettings = useCallback((updates: Partial<VisualSettings>) => {
     setVisualSettings((prev) => ({ ...prev, ...updates }));
