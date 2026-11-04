@@ -10,7 +10,7 @@ export interface PlaybackSnapshot {
   progressMs: number;
   isPlaying: boolean;
   volume: number | null;
-  receivedAt: number;
+  receivedAtMonotonicMs: number;
 }
 
 export interface PlaybackProvider {
