@@ -152,7 +152,7 @@ export default function App() {
         {/* Left Edge Halftone / Dither Clusters */}
         <div className="absolute top-1/4 -left-2 w-32 h-64 opacity-25">
           <img
-            src="/public/assets/aistudio/image_681cb620.png"
+            src="/assets/aistudio/image_681cb620.png"
             alt=""
             className="w-full h-full object-cover filter contrast-200"
           />
@@ -161,7 +161,7 @@ export default function App() {
         {/* Right Edge Halftone / Dither Clusters */}
         <div className="absolute bottom-1/4 -right-2 w-36 h-72 opacity-25">
           <img
-            src="/public/assets/aistudio/image_681cb620.png"
+            src="/assets/aistudio/image_681cb620.png"
             alt=""
             className="w-full h-full object-cover filter contrast-200"
           />
@@ -178,10 +178,10 @@ export default function App() {
       {/* GLOBAL TOP HEADER (Matching image_fa343142.png) */}
       {!isImmersive && (
         <header className="relative z-30 pt-6 px-8 md:px-12 flex items-center justify-between">
-          {/* Top-Left: SELVA® + Hairline rule */}
+          {/* Top-Left: PIERCE + Hairline rule */}
           <div className="flex items-center gap-4">
             <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-2xl tracking-tight text-black">
-              SELVA®
+              PIERCE
             </span>
             <div className="h-px bg-black/25 w-20 sm:w-32 hidden sm:block" />
           </div>
@@ -414,7 +414,7 @@ export default function App() {
                   {/* Left Rail */}
                   <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#121316]/90 border-r border-white/10 flex flex-col justify-between items-center py-4">
                     <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xs text-white">
-                      SELVA®
+                      PIERCE
                     </span>
                     <div className="flex flex-col gap-2">
                       <LayoutGrid className="w-3.5 h-3.5 text-white/50" />
@@ -428,7 +428,7 @@ export default function App() {
                   {/* Top-Left Cobalt Dither */}
                   <div className="absolute top-4 left-16 w-24 h-24 opacity-80 pointer-events-none">
                     <img
-                      src="/public/assets/aistudio/image_681cb620.png"
+                      src="/assets/aistudio/image_681cb620.png"
                       alt=""
                       className="w-full h-full object-contain filter contrast-200"
                     />
