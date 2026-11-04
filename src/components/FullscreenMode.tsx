@@ -150,7 +150,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
         {/* Background Cinema Still: Person looking up at clouds */}
         <div className="absolute inset-0">
           <img
-            src=cinematicBackdrop
+            src={cinematicBackdrop}
             alt="Person Looking Up at Clouds"
             className="w-full h-full object-cover filter contrast-125 brightness-75"
           />
