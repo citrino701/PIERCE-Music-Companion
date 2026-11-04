@@ -32,3 +32,8 @@ Provider timestamps are observations, not a frame clock. The future sync service
 ## Constraints
 
 Spotify Web API metadata access does not provide raw audio for DSP. Audio loopback is a separate operating-system capability. Technical feasibility does not establish permission to synchronize Spotify recordings with visual media; review current platform terms before enabling that path in a distributed build.
+
+
+## Playback clock implementation
+
+PlaybackClock is a pure TypeScript clock with an injected monotonic timestamp. It advances position locally between provider observations, freezes position on pause, re-anchors on resume and seek, resets on a new track, and clamps to known duration. Use performance.now()-based timestamps for both provider receipt and reads; never mix them with Date.now(). A provider correction is applied through synchronize() using the latest observed position and its monotonic receive timestamp.
