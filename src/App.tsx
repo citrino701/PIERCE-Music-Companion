@@ -427,7 +427,7 @@ export default function App() {
                 >
                   {/* Embedded mini Fullscreen preview */}
                   <img
-                    src=cinematicBackdrop
+                    src={cinematicBackdrop}
                     alt=""
                     className="w-full h-full object-cover filter contrast-125 brightness-75 group-hover:scale-105 transition-transform duration-700"
                   />
