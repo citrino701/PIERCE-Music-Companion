@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import cinematicBackdrop from '../assets/images/tame_impala_person_sky_1793799892976.jpg';
 import {
   TrackData,
   LyricLine,
@@ -149,7 +150,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
         {/* Background Cinema Still: Person looking up at clouds */}
         <div className="absolute inset-0">
           <img
-            src="/src/assets/images/tame_impala_person_sky_1793799892976.jpg"
+            src=cinematicBackdrop
             alt="Person Looking Up at Clouds"
             className="w-full h-full object-cover filter contrast-125 brightness-75"
           />
