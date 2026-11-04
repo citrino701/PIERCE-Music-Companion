@@ -120,7 +120,7 @@ export const ZenMode: React.FC<ZenModeProps> = ({
       >
         <div className="flex items-center gap-3">
           <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xs tracking-widest uppercase text-[#141416]/70">
-            SELVA® // 05 ZEN
+            PIERCE // 05 ZEN
           </span>
           <span className="text-[#141416]/30">·</span>
           <span className="text-xs font-mono text-[#141416]/60">
