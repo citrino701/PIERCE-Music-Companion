@@ -293,7 +293,7 @@ export default function App() {
 
       {/* CENTRAL VIEWPORT */}
       <div className="flex-1 flex items-center justify-center relative z-20 py-4 px-4 sm:px-8">
-        {/* 1. BOARD OVERVIEW (Exact reproduction of image_fa343142.png with all 4 modes placed on table) */}
+        {/* 1. BOARD OVERVIEW: all five official PIERCE modes */}
         {isBoardView ? (
           <div className="w-full max-w-7xl mx-auto my-auto py-6 space-y-12">
             {/* Top Row: 01. Compacto (Left) & 02. Disco (Right) */}
@@ -353,7 +353,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Bottom Row: 03. Expandido (Left) & 04. Fullscreen (Right) */}
+            {/* Bottom Row: 03. Expandido & 04. Fullscreen */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-4">
               {/* 03. Expandido */}
               <div className="lg:col-span-6 flex flex-col">
@@ -464,6 +464,40 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* 05. Zen preview */}
+            <div className="pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-mono text-black/70 font-medium">05. Zen</span>
+                <div className="h-px bg-black/20 w-16" />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBoardView(false);
+                  setCurrentMode('zen');
+                }}
+                className="relative w-full min-h-[190px] overflow-hidden rounded-2xl border border-black/10 bg-[#f7f5f0] p-8 text-left shadow-lg transition-transform hover:-translate-y-1"
+              >
+                <div
+                  className="absolute -left-10 -top-24 h-72 w-72 rounded-full blur-[70px] opacity-35"
+                  style={{ backgroundColor: currentTrack.accentColor }}
+                />
+                <div
+                  className="absolute -right-8 -bottom-32 h-80 w-80 rounded-full blur-[80px] opacity-25"
+                  style={{ backgroundColor: currentTrack.secondaryColor }}
+                />
+                <div className="relative z-10 flex min-h-[125px] flex-col justify-between">
+                  <span className="text-[10px] font-mono tracking-[0.2em] text-black/45">PIERCE / 05</span>
+                  <div>
+                    <p className="max-w-3xl font-['Plus_Jakarta_Sans',sans-serif] text-2xl font-medium tracking-tight text-black sm:text-3xl">
+                      {activeLyric?.text || 'O silêncio antes do compasso.'}
+                    </p>
+                    <p className="mt-3 text-xs font-mono text-black/45">ZEN EXPERIENCE · ABRIR MODO</p>
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
         ) : (
