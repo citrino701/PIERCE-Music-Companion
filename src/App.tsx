@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import cinematicBackdrop from './assets/images/tame_impala_person_sky_1793799892976.jpg';
 import { ViewMode, TrackData, VisualSettings } from './types';
 import { TRACK_CATALOG } from './data/tracks';
 import {
@@ -405,7 +406,7 @@ export default function App() {
                 >
                   {/* Embedded mini Fullscreen preview */}
                   <img
-                    src="/src/assets/images/tame_impala_person_sky_1793799892976.jpg"
+                    src=cinematicBackdrop
                     alt=""
                     className="w-full h-full object-cover filter contrast-125 brightness-75 group-hover:scale-105 transition-transform duration-700"
                   />
