@@ -82,7 +82,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       <div className="w-16 h-full bg-[#121316] border-r border-white/10 flex flex-col justify-between items-center py-6 z-30 shrink-0">
         <div className="flex flex-col items-center gap-1">
           <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm tracking-tight text-white">
-            SELVA®
+            PIERCE
           </span>
         </div>
 
@@ -159,7 +159,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
         {/* Top-Left Cobalt Blue Halftone Dither Pixel Art */}
         <div className="absolute top-6 left-6 w-52 h-52 pointer-events-none opacity-85 z-20">
           <img
-            src="/public/assets/aistudio/image_681cb620.png"
+            src="/assets/aistudio/image_681cb620.png"
             alt=""
             className="w-full h-full object-contain mix-blend-screen filter contrast-200 brightness-110"
           />
