@@ -34,7 +34,9 @@ export interface SpotifyNowPlaying {
 
 function base64Url(bytes: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(bytes)))
-    .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
 async function createChallenge(verifier: string): Promise<string> {
