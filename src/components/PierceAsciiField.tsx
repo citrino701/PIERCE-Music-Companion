@@ -65,8 +65,9 @@ export const PierceAsciiField: React.FC = () => {
 
     const build = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth;
-      height = window.innerHeight;
+      const bounds = canvas.parentElement?.getBoundingClientRect();
+      width = Math.max(1, bounds?.width ?? window.innerWidth - 64);
+      height = Math.max(1, bounds?.height ?? window.innerHeight);
       cell = width < 600 ? 8 : 10;
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
@@ -80,9 +81,9 @@ export const PierceAsciiField: React.FC = () => {
     };
 
     const drawStar = (time: number) => {
-      const centerX = width * 0.255;
-      const centerY = height * 0.265;
-      const radius = Math.min(width, height) * 0.205;
+      const centerX = width * 0.205;
+      const centerY = height * 0.255;
+      const radius = Math.min(width, height) * 0.19;
       const pulsePhase = 0.5 + 0.5 * Math.cos(time * Math.PI * 2 / 7);
       const pulse = 0.12 + 0.88 * Math.pow(pulsePhase, 1.4);
       const angle = 0.12 * Math.sin(time * 0.35);
@@ -120,7 +121,7 @@ export const PierceAsciiField: React.FC = () => {
           const character = brightness > 0.72 && flicker > 0.45
             ? GLYPH[Math.floor(hash(x * 3 + y + Math.floor(time * 4)) * GLYPH.length)]
             : FACE[Math.min(FACE.length - 1, Math.floor(brightness * FACE.length))];
-          put(character, x, y, Math.min(0.28, 0.035 + brightness * 0.17), brightness > 0.78 ? '#8c8a7d' : '#9b978e');
+          put(character, x, y, Math.min(0.48, 0.07 + brightness * 0.29), brightness > 0.78 ? '#62665e' : '#77786f');
         }
       }
 
@@ -133,16 +134,16 @@ export const PierceAsciiField: React.FC = () => {
         if (Math.hypot(dx, dy) < 1.05) continue;
         const twinkle = Math.pow(0.5 + 0.5 * Math.sin(time * (0.4 + hash(i + 5)) + hash(i + 9) * 6.28), 3);
         const glyph = TWINK[Math.floor(hash(i + Math.floor(time * 0.3)) * TWINK.length)];
-        put(glyph, x, y, 0.035 + twinkle * 0.13, '#89867d');
+        put(glyph, x, y, 0.08 + twinkle * 0.2, '#77786f');
       }
 
       return pulse;
     };
 
     const drawWordmark = (time: number) => {
-      const scale = Math.min(width * 0.76, 900);
+      const scale = Math.min(width * 0.62, 760);
       const centerX = width * 0.34;
-      const centerY = height * 0.54;
+      const centerY = height * 0.57;
       const rotation = reducedMotion ? 0.18 : Math.sin(time * 0.32) * 0.28 + time * 0.12;
       const cosine = Math.cos(rotation);
       const sine = Math.sin(rotation);
@@ -163,12 +164,12 @@ export const PierceAsciiField: React.FC = () => {
         if (screenX < 62 || screenX > width - 12 || screenY < 12 || screenY > height - 12) continue;
 
         const frontLight = Math.max(0, point.z > 0 ? cosine : -cosine);
-        const brightness = point.edge ? 0.35 + Math.abs(sine) * 0.32 : 0.22 + frontLight * 0.62;
+        const brightness = point.edge ? 0.5 + Math.abs(sine) * 0.32 : 0.38 + frontLight * 0.62;
         const character = point.edge
           ? EDGE[Math.floor(hash(i) * EDGE.length)]
           : FACE[Math.min(FACE.length - 1, Math.floor(brightness * FACE.length))];
-        const color = point.edge ? '#69766a' : (i % 13 === 0 ? '#637aa8' : '#77736b');
-        put(character, screenX, screenY, point.edge ? 0.22 : 0.12 + brightness * 0.28, color);
+        const color = point.edge ? '#596b5d' : (i % 13 === 0 ? '#536b91' : '#4f514b');
+        put(character, screenX, screenY, point.edge ? 0.48 : 0.3 + brightness * 0.38, color);
       }
     };
 
@@ -210,7 +211,7 @@ export const PierceAsciiField: React.FC = () => {
 
     const onResize = () => {
       build();
-      if (reducedMotion) frame(performance.now());
+      frame(performance.now());
     };
 
     build();
