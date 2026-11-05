@@ -180,3 +180,43 @@
 @media (prefers-reduced-motion: reduce) {
   .pierce-pond-ring, .pierce-surface-ripple { animation-duration: .01ms; }
 }
+
+
+/* Editorial fullscreen redesign */
+.pierce-editorial-shell { background: #f5f4f0; color: #252522; }
+.pierce-editorial-rail { background: #292925; border-right: 1px solid rgba(255,255,255,.08); color: #f7f6f2; }
+.pierce-wordmark { color: #fff; letter-spacing: -.075em; }
+.pierce-rail-button { color: rgba(255,255,255,.48); }
+.pierce-rail-button:hover, .pierce-rail-button-active { color: #fff; }
+.pierce-version { color: rgba(255,255,255,.28); }
+.pierce-fullscreen-surface, .pierce-editorial-canvas { background: #f5f4f0; color: #252522; isolation: isolate; }
+.pierce-ascii-interaction canvas { opacity: .13; }
+.pierce-ascii-mode { display: none; }
+.pierce-exit-button { color: #383832; background: rgba(255,255,255,.62); border: 1px solid rgba(45,45,39,.16); box-shadow: none; backdrop-filter: blur(8px); font-family: "Plus Jakarta Sans", sans-serif; }
+.pierce-exit-button:hover { background: #fff; }
+.pierce-lyrics-layout { color: #292925; }
+.pierce-lyrics-copy { color: #292925; text-shadow: none; font-weight: 500; text-wrap: pretty; }
+.pierce-lyrics-scroll { scrollbar-color: rgba(60,58,51,.22) transparent; }
+.pierce-lyric-timestamp { color: #8b877e; font-family: "Space Mono", monospace; }
+.pierce-player-bar { color: #292925; }
+.pierce-track-title { color: #292925; }
+.pierce-track-artist { color: #77736b; }
+.pierce-scrubber { background: rgba(41,41,37,.16); }
+.pierce-scrubber-progress { background: #292925; }
+.pierce-timecode { color: #89857d; }
+.pierce-control-button { color: #45443e; }
+.pierce-control-button:hover { color: #111; }
+.pierce-control-idle { color: #99958c; }
+.pierce-control-active { color: #292925; }
+.pierce-play-button { color: #f7f6f2; background: #292925; box-shadow: none; }
+.pierce-play-button:hover { background: #44433d; }
+.pierce-artifact-video { mix-blend-mode: multiply; filter: saturate(.55) contrast(1.05); }
+.pierce-surface-ripple { border-color: rgba(75,72,63,.28); box-shadow: none; }
+@media (max-width: 760px) {
+  .pierce-lyrics-layout { left: 69%; width: min(54vw, 460px); }
+  .pierce-active-lyric { margin-right: 5vw; width: min(54vw, 460px); }
+  .pierce-lyrics-copy { font-size: clamp(1.15rem, 4vw, 1.8rem); }
+  .pierce-player-bar { padding: 1.25rem; }
+  .pierce-artifact-video { max-width: 42vw; }
+}
+@media (prefers-reduced-motion: reduce) { .pierce-artifact-video { transition: none !important; } }
