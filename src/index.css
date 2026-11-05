@@ -247,3 +247,14 @@
 @media (prefers-reduced-motion: reduce) {
   .pierce-ascii-artifact { transition: none; }
 }
+
+
+/* Permanent ambient ASCII composition: transparent, editorial and always present. */
+.pierce-ambient-composition { opacity: .92; mix-blend-mode: multiply; overflow: hidden; }
+.pierce-ambient-composition canvas { display: block; width: 100%; height: 100%; }
+@media (max-width: 760px) {
+  .pierce-ambient-composition { opacity: .72; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pierce-ambient-composition { transition: none; }
+}
