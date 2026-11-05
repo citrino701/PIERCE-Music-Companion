@@ -95,6 +95,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       data-testid="fullscreen-mode-container"
       className="fixed inset-0 z-50 bg-[#16171a] text-white overflow-hidden select-none cursor-default flex"
     >
+      <PierceAsciiField />
       {/* Left Vertical Dark Rail (Matching image_fa343142.png) */}
       <div className="w-16 h-full bg-[#121316] border-r border-white/10 flex flex-col justify-between items-center py-6 z-30 shrink-0">
         <div className="flex flex-col items-center gap-1">
@@ -164,7 +165,6 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       {/* Main Full-Bleed Audiovisual Composition */}
       <div ref={surfaceRef} className="pierce-fullscreen-surface flex-1 relative h-full overflow-hidden flex flex-col justify-between">
         <div className="pierce-signal-pond absolute inset-0" aria-hidden="true"><div className="pierce-pond-ring pierce-pond-ring-one" /><div className="pierce-pond-ring pierce-pond-ring-two" /><div className="pierce-pond-ring pierce-pond-ring-three" /><div className="pierce-pond-core" /><div className="pierce-pond-grid" /></div>
-        <PierceAsciiField />
         <div className="pierce-ascii-field absolute inset-0 z-[3] overflow-hidden pointer-events-none" aria-hidden="true">
           <pre className="pierce-ascii pierce-ascii-a absolute -left-12 top-[-8%] text-[8px] md:text-[10px] leading-[0.92] opacity-45">{'░▒▓█▓▒░   .:+*##*+:.   ░▒▓█▓▒░\n▒▓██▓▒░  /  P I E R C E  \\  ░▒▓██▓▒\n▓███▓▒  <  SIGNAL / 01  >  ▒▓███▓\n▒▓██▓▒░  \\  .:+*##*+:.  /  ░▒▓██▓▒\n░▒▓█▓▒░   :::::::::::::   ░▒▓█▓▒░\n'.repeat(12)}</pre>
           <pre className="pierce-ascii pierce-ascii-b absolute right-[-5%] top-[8%] text-[9px] md:text-xs leading-[1.05] opacity-35 text-right">{'      .       *       .\n   .  /|\\  .   .  /|\\\n  --  / | \\  --  / | \\ --\n   .   / \\   .    / \\  .\n      /___\\      /___\\\n'.repeat(10)}</pre>
