@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import cinematicBackdrop from '../assets/images/tame_impala_person_sky_1793799892976.jpg';
+import React, { useState, useEffect, useRef } from 'react';
+import { PierceAsciiField } from './PierceAsciiField';
+import { PierceAsciiArtifact } from './PierceAsciiArtifact';
 import {
   TrackData,
   LyricLine,
@@ -63,6 +64,17 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   onNext,
 }) => {
   const [isRepeat, setIsRepeat] = useState(false);
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const triggerRipple = () => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const ripple = document.createElement('span');
+    ripple.className = 'pierce-surface-ripple';
+    ripple.style.left = '50%';
+    ripple.style.top = '50%';
+    surface.appendChild(ripple);
+    window.setTimeout(() => ripple.remove(), 950);
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -84,6 +96,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       data-testid="fullscreen-mode-container"
       className="fixed inset-0 z-50 bg-[#16171a] text-white overflow-hidden select-none cursor-default flex"
     >
+      <PierceAsciiField />
       {/* Left Vertical Dark Rail (Matching image_fa343142.png) */}
       <div className="w-16 h-full bg-[#121316] border-r border-white/10 flex flex-col justify-between items-center py-6 z-30 shrink-0">
         <div className="flex flex-col items-center gap-1">
@@ -151,36 +164,17 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       </div>
 
       {/* Main Full-Bleed Audiovisual Composition */}
-      <div className="flex-1 relative h-full overflow-hidden flex flex-col justify-between">
-        <div className="absolute inset-0">
-          <img src={cinematicBackdrop} alt="" className="w-full h-full object-cover contrast-125 brightness-[0.42] saturate-[0.55]" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#05070d]/90 via-[#05070d]/35 to-[#05070d]/80" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/45" />
-        </div>
-        <div className="pierce-ascii-field absolute inset-0 z-[1] overflow-hidden pointer-events-none" aria-hidden="true">
+      <div ref={surfaceRef} className="pierce-fullscreen-surface flex-1 relative h-full overflow-hidden flex flex-col justify-between">
+        <PierceAsciiArtifact isPlaying={isPlaying} />
+        <div className="pierce-signal-pond absolute inset-0" aria-hidden="true"><div className="pierce-pond-ring pierce-pond-ring-one" /><div className="pierce-pond-ring pierce-pond-ring-two" /><div className="pierce-pond-ring pierce-pond-ring-three" /><div className="pierce-pond-core" /><div className="pierce-pond-grid" /></div>
+        <div className="pierce-ascii-field absolute inset-0 z-[3] overflow-hidden pointer-events-none" aria-hidden="true">
           <pre className="pierce-ascii pierce-ascii-a absolute -left-12 top-[-8%] text-[8px] md:text-[10px] leading-[0.92] opacity-45">{'░▒▓█▓▒░   .:+*##*+:.   ░▒▓█▓▒░\n▒▓██▓▒░  /  P I E R C E  \\  ░▒▓██▓▒\n▓███▓▒  <  SIGNAL / 01  >  ▒▓███▓\n▒▓██▓▒░  \\  .:+*##*+:.  /  ░▒▓██▓▒\n░▒▓█▓▒░   :::::::::::::   ░▒▓█▓▒░\n'.repeat(12)}</pre>
           <pre className="pierce-ascii pierce-ascii-b absolute right-[-5%] top-[8%] text-[9px] md:text-xs leading-[1.05] opacity-35 text-right">{'      .       *       .\n   .  /|\\  .   .  /|\\\n  --  / | \\  --  / | \\ --\n   .   / \\   .    / \\  .\n      /___\\      /___\\\n'.repeat(10)}</pre>
           <pre className="pierce-ascii pierce-ascii-c absolute bottom-[-8%] left-[12%] text-[7px] md:text-[9px] leading-none opacity-30">{'01001000 01000101 01000001 01010010\n░░▒▒▓▓████▓▓▒▒░░░░▒▒▓▓████▓▓▒▒░░\n<  THE ROOM IS STILL MOVING  >\n'.repeat(13)}</pre>
           <div className="absolute inset-0 pierce-ascii-scan opacity-20" />
         </div>
 
-        <div className="pierce-ascii-orbit absolute z-[12] right-[12%] top-[22%] pointer-events-none select-none text-[#2864ff]" aria-hidden="true"><pre className="font-mono text-[8px] sm:text-[10px] leading-[0.9] drop-shadow-[0_0_12px_rgba(38,94,255,.9)]">{'   .-====-.\n  /  .::.  \\\n |  (::::)  |\n  \\  `::`  /\n   `-====-`'}</pre></div>
-
-        {/* Top-Left Cobalt Blue Halftone Dither Pixel Art */}
-        <div className="absolute top-6 left-6 w-52 h-52 pointer-events-none opacity-85 z-20">
-          <img
-            src="/assets/aistudio/image_681cb620.png"
-            alt=""
-            className="w-full h-full object-contain mix-blend-screen filter contrast-200 brightness-110"
-          />
-        </div>
-
-        {/* Center-Right: Electric Cobalt Blue 4-Point Sparkle Star Flare (image_fa343142.png) */}
-        <div className="absolute top-1/4 right-1/4 pointer-events-none z-20">
-          <svg className="w-40 h-40 filter drop-shadow-[0_0_20px_#002aff]" viewBox="0 0 100 100" fill="#002aff">
-            <path d="M50 0 L52 46 L100 50 L52 54 L50 100 L48 54 L0 50 L48 46 Z" />
-          </svg>
-        </div>
+        <div className="pierce-ascii-orbit absolute z-[4] right-[12%] top-[22%] pointer-events-none select-none text-[#2864ff]" aria-hidden="true"><pre className="font-mono text-[8px] sm:text-[10px] leading-[0.9] drop-shadow-[0_0_12px_rgba(38,94,255,.9)]">{'   .-====-.\n  /  .::.  \\\n |  (::::)  |\n  \\  `::`  /\n   `-====-`'}</pre></div>
 
         {/* Top-Right: ESC Exit Button */}
         <div className="relative z-30 p-6 flex justify-end items-center gap-3">
@@ -195,7 +189,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
           </button>
         </div>
 
-        {lyricsText && (<div className="absolute z-20 right-7 md:right-14 top-[22%] md:top-[24%] w-[min(38vw,520px)] max-h-[52vh] overflow-y-auto text-right pr-1 pierce-lyrics-scroll"><div className="font-mono text-[9px] tracking-[0.28em] text-[#4778ff] mb-4">LYRIC FRAGMENT / TEXT</div><p className="font-['Plus_Jakarta_Sans',sans-serif] text-lg md:text-2xl lg:text-3xl font-semibold leading-[1.12] tracking-[-0.045em] text-white whitespace-pre-line [text-align:justify] [text-align-last:right] drop-shadow-[0_2px_18px_rgba(0,0,0,.8)]">{lyricsText}</p></div>)}
+{lyricsText && (<div className="absolute z-20 left-1/2 -translate-x-1/2 top-[22%] md:top-[24%] w-[min(68vw,760px)] max-h-[52vh] overflow-y-auto px-3 pierce-lyrics-scroll"><div className="font-mono text-[9px] tracking-[0.28em] text-[#4778ff] mb-5 text-center">LYRIC FRAGMENT / TEXT</div><p className="font-['Plus_Jakarta_Sans',sans-serif] text-lg md:text-2xl lg:text-3xl font-semibold leading-[1.16] tracking-[-0.035em] text-white whitespace-pre-line [text-align:justify] [text-align-last:center] drop-shadow-[0_2px_18px_rgba(0,0,0,.8)]">{lyricsText}</p></div>)}
         {/* Active Kinetic Lyric Floating in Negative Space */}
         {!lyricsText && activeLyric && (
           <div className="relative z-20 px-8 md:px-14 my-auto max-w-3xl">
@@ -229,6 +223,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
                 aria-valuenow={progressMs}
                 tabIndex={0}
                 onClick={(e) => {
+                  triggerRipple();
                   const rect = e.currentTarget.getBoundingClientRect();
                   const clickX = e.clientX - rect.left;
                   const ratio = Math.max(0, Math.min(1, clickX / rect.width));
@@ -252,7 +247,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={onToggleShuffle}
+              onClick={() => { triggerRipple(); onToggleShuffle(); }}
               aria-label="Modo aleatório"
               className={`p-1 transition-colors cursor-pointer ${shuffleEnabled ? 'text-[#4778ff]' : 'text-white/40 hover:text-white'}`}
             >
@@ -261,7 +256,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 
             <button
               type="button"
-              onClick={onPrevious}
+              onClick={() => { triggerRipple(); onPrevious(); }}
               aria-label="Faixa anterior"
               className="p-1 text-white hover:text-white/80 transition-colors cursor-pointer"
             >
@@ -270,7 +265,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 
             <button
               type="button"
-              onClick={onTogglePlay}
+              onClick={() => { triggerRipple(); onTogglePlay(); }}
               aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
               className="w-11 h-11 rounded-full bg-white text-black hover:bg-white/90 transition-transform active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
             >
@@ -279,7 +274,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 
             <button
               type="button"
-              onClick={onNext}
+              onClick={() => { triggerRipple(); onNext(); }}
               aria-label="Próxima faixa"
               className="p-1 text-white hover:text-white/80 transition-colors cursor-pointer"
             >
@@ -288,7 +283,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 
             <button
               type="button"
-              onClick={() => setIsRepeat(!isRepeat)}
+              onClick={() => { triggerRipple(); setIsRepeat(!isRepeat); }}
               aria-label="Repetir faixa"
               className={`p-1 transition-colors cursor-pointer ${
                 isRepeat ? 'text-white' : 'text-white/40 hover:text-white'
