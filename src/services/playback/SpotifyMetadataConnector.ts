@@ -139,7 +139,7 @@ async function spotifyPlaybackCommand(action: 'pause' | 'play'): Promise<void> {
   throw new Error('Não foi possível controlar o Spotify (erro ' + response.status + ').');
 }
 
-export interface LyricsRecord { plainLyrics: string | null; instrumental: boolean; }
+export interface LyricsRecord { plainLyrics: string | null; syncedLyrics: string | null; instrumental: boolean; }
 
 export async function fetchTrackLyrics(track: { title: string; artist: string; album: string; durationMs: number }): Promise<LyricsRecord | null> {
   const params = new URLSearchParams({
