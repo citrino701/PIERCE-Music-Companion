@@ -27,6 +27,7 @@ export default function App() {
   const [lyricsText, setLyricsText] = useState<string | null>(null);
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [spotifyControlError, setSpotifyControlError] = useState('');
+  const spotifyErrorTimeoutRef = useRef<number | null>(null);
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
   const [volume, setVolume] = useState<number>(0.8);
   const [visualSettings, setVisualSettings] = useState<VisualSettings>({
@@ -117,7 +118,15 @@ export default function App() {
     if (spotifyConnected) {
       setSpotifyControlError('');
       const command = isPlaying ? pauseSpotifyPlayback : resumeSpotifyPlayback;
-      void command().then(() => setIsPlaying(!isPlaying)).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao controlar o Spotify.'));
+      void command().then(() => {
+        setIsPlaying(!isPlaying);
+        setSpotifyControlError('');
+        if (spotifyErrorTimeoutRef.current !== null) window.clearTimeout(spotifyErrorTimeoutRef.current);
+      }).catch((error) => {
+        setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao controlar o Spotify.');
+        if (spotifyErrorTimeoutRef.current !== null) window.clearTimeout(spotifyErrorTimeoutRef.current);
+        spotifyErrorTimeoutRef.current = window.setTimeout(() => setSpotifyControlError(''), 4500);
+      });
       return;
     }
     const provider = playbackProviderRef.current!;
