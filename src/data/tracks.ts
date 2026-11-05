@@ -1,4 +1,10 @@
 import { TrackData } from '../types';
+import image0 from '../assets/images/tame_impala_cover_building_1793799892877.jpg';
+import image1 from '../assets/images/tame_impala_person_sky_1793799892976.jpg';
+import image2 from '../assets/images/human_cinema_rain_window_1793797953624.jpg';
+import image3 from '../assets/images/human_cinema_ocean_walk_1793797954057.jpg';
+import image4 from '../assets/images/human_cinema_rooftop_dusk_1793797953806.jpg';
+import image5 from '../assets/images/human_cinema_hands_record_1793797954580.jpg';
 
 export const TRACK_CATALOG: TrackData[] = [
   {
@@ -13,8 +19,8 @@ export const TRACK_CATALOG: TrackData[] = [
     mood: 'Psychedelic Pop · Indie Disco · Nostalgia',
     accentColor: '#002aff', // Electric cobalt blue
     secondaryColor: '#ffffff',
-    coverImage: '/src/assets/images/tame_impala_cover_building_1793799892877.jpg',
-    discArtwork: '/public/assets/aistudio/image_681cb620.png',
+    coverImage: 'image0',
+    discArtwork: '/assets/aistudio/image_681cb620.png',
     chapters: [
       {
         id: 'c01',
@@ -74,8 +80,8 @@ export const TRACK_CATALOG: TrackData[] = [
       {
         id: 's01',
         title: 'Building Against Sky',
-        image: '/src/assets/images/tame_impala_cover_building_1793799892877.jpg',
-        secondaryImage: '/public/assets/aistudio/image_681cb620.png',
+        image: 'image0',
+        secondaryImage: '/assets/aistudio/image_681cb620.png',
         tag: '35mm · Tri-X',
         layout: 'split',
         speed: 'normal',
@@ -85,8 +91,8 @@ export const TRACK_CATALOG: TrackData[] = [
       {
         id: 's02',
         title: 'Person Looking Up at Clouds',
-        image: '/src/assets/images/tame_impala_person_sky_1793799892976.jpg',
-        secondaryImage: '/public/assets/aistudio/image_681cb620.png',
+        image: 'image1',
+        secondaryImage: '/assets/aistudio/image_681cb620.png',
         tag: 'Cinematic · Cobalt Star',
         layout: 'single',
         speed: 'slow',
@@ -107,8 +113,8 @@ export const TRACK_CATALOG: TrackData[] = [
     mood: 'Melancolia Urbana · Cinema Noir',
     accentColor: '#002aff',
     secondaryColor: '#f44336',
-    coverImage: '/src/assets/images/human_cinema_rain_window_1793797953624.jpg',
-    discArtwork: '/public/assets/aistudio/image_b4da673e.png',
+    coverImage: 'image2',
+    discArtwork: '/assets/aistudio/image_b4da673e.png',
     chapters: [
       {
         id: 'c1',
@@ -157,8 +163,8 @@ export const TRACK_CATALOG: TrackData[] = [
       {
         id: 's1',
         title: 'Café & Chuva',
-        image: '/src/assets/images/human_cinema_rain_window_1793797953624.jpg',
-        secondaryImage: '/public/assets/aistudio/image_681cb620.png',
+        image: 'image2',
+        secondaryImage: '/assets/aistudio/image_681cb620.png',
         tag: '35mm · Tungstênio',
         layout: 'single',
         speed: 'normal',
