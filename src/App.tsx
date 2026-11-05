@@ -14,6 +14,7 @@ import { ExpandedMode } from './components/ExpandedMode';
 import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
+import { pauseSpotifyPlayback, resumeSpotifyPlayback, fetchTrackLyrics } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
 
@@ -23,6 +24,9 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState<TrackData>(TRACK_CATALOG[0]);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [lyricsText, setLyricsText] = useState<string | null>(null);
+  const [lyricsOpen, setLyricsOpen] = useState(false);
+  const [spotifyControlError, setSpotifyControlError] = useState('');
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
   const [volume, setVolume] = useState<number>(0.8);
   const [visualSettings, setVisualSettings] = useState<VisualSettings>({
@@ -57,6 +61,16 @@ export default function App() {
     setProgressMs(snapshot.progress_ms ?? 0);
     setIsPlaying(snapshot.is_playing);
   }, []);
+
+  useEffect(() => {
+    if (!spotifyConnected || !currentTrack.id.startsWith('spotify-')) { setLyricsText(null); return; }
+    let cancelled = false;
+    setLyricsText(null);
+    void fetchTrackLyrics(currentTrack).then((record) => {
+      if (!cancelled) setLyricsText(record?.plainLyrics ?? (record?.instrumental ? 'Faixa instrumental.' : null));
+    }).catch(() => { if (!cancelled) setLyricsText(null); });
+    return () => { cancelled = true; };
+  }, [spotifyConnected, currentTrack.id]);
 
   // The demo uses the same provider contract reserved for future integrations.
   const playbackProviderRef = useRef<DemoPlaybackProvider | null>(null);
@@ -100,10 +114,16 @@ export default function App() {
 
   // Playback control handlers
   const handleTogglePlay = useCallback(() => {
+    if (spotifyConnected) {
+      setSpotifyControlError('');
+      const command = isPlaying ? pauseSpotifyPlayback : resumeSpotifyPlayback;
+      void command().then(() => setIsPlaying(!isPlaying)).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao controlar o Spotify.'));
+      return;
+    }
     const provider = playbackProviderRef.current!;
     if (isPlaying) void provider.pause();
     else void provider.play();
-  }, [isPlaying]);
+  }, [isPlaying, spotifyConnected]);
 
   const handleSeek = useCallback((newMs: number) => {
     const position = Math.max(0, Math.min(currentTrack.durationMs, newMs));
@@ -325,6 +345,15 @@ export default function App() {
             <span className="text-sm font-light text-black/80">+</span>
           </div>
         </header>
+      )}
+
+      {spotifyControlError && <div className="fixed top-16 right-5 z-[70] max-w-sm rounded-lg bg-black text-white px-4 py-3 text-xs shadow-xl">{spotifyControlError}</div>}
+
+      {lyricsText && (
+        <div className="fixed bottom-5 right-5 z-[60]">
+          <button type="button" onClick={() => setLyricsOpen((open) => !open)} className="rounded-full border border-white/20 bg-black/80 px-4 py-2 text-[10px] font-mono tracking-widest text-white shadow-lg backdrop-blur">LYRICS {lyricsOpen ? '−' : '+'}</button>
+          {lyricsOpen && <div className="absolute bottom-12 right-0 w-72 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-xl border border-white/15 bg-black/90 p-4 text-sm leading-6 text-white shadow-2xl">{lyricsText}</div>}
+        </div>
       )}
 
       {isImmersive && (
