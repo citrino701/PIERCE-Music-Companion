@@ -658,6 +658,7 @@ export default function App() {
                 activeLyric={activeLyric}
                 lyricsText={lyricsText}
                 onToggleShuffle={handleToggleShuffle}
+                shuffleEnabled={spotifyShuffle}
                 activeChapter={activeChapter}
                 audioFeatures={audioFeatures}
                 visualSettings={visualSettings}
