@@ -41,6 +41,7 @@ export default function App() {
 
   const handleSpotifySnapshot = useCallback((snapshot: SpotifyNowPlaying | null) => {
     setSpotifyConnected(true);
+    if (typeof snapshot?.shuffle_state === 'boolean') setSpotifyShuffle(snapshot.shuffle_state);
     if (!snapshot?.item) {
       setIsPlaying(false);
       setProgressMs(0);
