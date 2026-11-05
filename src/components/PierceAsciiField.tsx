@@ -31,7 +31,7 @@ export const PierceAsciiField: React.FC = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = window.innerWidth;
       height = window.innerHeight;
-      cell = width < 600 ? 7 : 9;
+      cell = width < 600 ? 8 : 11;
       columns = Math.ceil(width / cell);
       rows = Math.ceil(height / cell);
       canvas.width = Math.round(width * dpr);
@@ -49,10 +49,10 @@ export const PierceAsciiField: React.FC = () => {
       sourceContext.textBaseline = 'middle';
       const face = "'Arial Black', Impact, 'Helvetica Neue', sans-serif";
       sourceContext.font = `900 100px ${face}`;
-      const measured = sourceContext.measureText('PIERCE').width;
-      const fontSize = Math.min(100 * columns * 0.72 / measured, rows * 0.34);
+      const measured = sourceContext.measureText('PiErCe').width;
+      const fontSize = Math.min(100 * columns * 0.38 / measured, rows * 0.19);
       sourceContext.font = `900 ${fontSize}px ${face}`;
-      sourceContext.fillText('PIERCE', columns / 2, rows / 2);
+      sourceContext.fillText('PiErCe', columns / 2, rows / 2);
       const pixels = sourceContext.getImageData(0, 0, columns, rows).data;
       mask = new Float32Array(columns * rows);
       random = new Float32Array(columns * rows);
@@ -66,7 +66,7 @@ export const PierceAsciiField: React.FC = () => {
       const elapsed = reducedMotion ? 4 : (now - startedAt) / 1000;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#4778ff';
+      ctx.fillStyle = '#8f8b83';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = `${cell * 1.2}px ui-monospace, Menlo, Consolas, monospace`;
