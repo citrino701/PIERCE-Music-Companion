@@ -141,6 +141,32 @@ async function spotifyPlaybackCommand(action: 'pause' | 'play'): Promise<void> {
   throw new Error('Não foi possível controlar o Spotify (erro ' + response.status + ').');
 }
 
+export async function seekSpotifyPlayback(positionMs: number): Promise<void> {
+  return spotifyPlayerRequest('/seek?position_ms=' + Math.max(0, Math.round(positionMs)), 'PUT');
+}
+
+export async function skipSpotifyTrack(direction: 'next' | 'previous'): Promise<void> {
+  return spotifyPlayerRequest('/' + direction, 'POST');
+}
+
+export async function setSpotifyShuffle(enabled: boolean): Promise<void> {
+  return spotifyPlayerRequest('/shuffle?state=' + String(enabled), 'PUT');
+}
+
+async function spotifyPlayerRequest(path: string, method: 'PUT' | 'POST'): Promise<void> {
+  const token = getSpotifyToken();
+  if (!token) throw new Error('Conecte novamente sua conta Spotify para liberar os controles.');
+  const response = await fetch('https://api.spotify.com/v1/me/player' + path, {
+    method,
+    headers: { Authorization: 'Bearer ' + token.access_token },
+  });
+  if (response.ok) return;
+  if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
+  if (response.status === 403) throw new Error('O Spotify exige uma conta Premium e um dispositivo ativo para controlar a reprodução.');
+  if (response.status === 404) throw new Error('Nenhum dispositivo Spotify ativo foi encontrado. Abra o Spotify e inicie uma faixa.');
+  throw new Error('Não foi possível controlar o Spotify (erro ' + response.status + ').');
+}
+
 export interface LyricsRecord { plainLyrics: string | null; syncedLyrics: string | null; instrumental: boolean; }
 
 export async function fetchTrackLyrics(track: { title: string; artist: string; album: string; durationMs: number }): Promise<LyricsRecord | null> {
