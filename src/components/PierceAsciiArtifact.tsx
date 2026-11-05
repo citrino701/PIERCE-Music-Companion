@@ -24,11 +24,13 @@ const ARTWORKS = [
   },
   {
     tone: 'yellow' as const,
-    art: String.raw`          .-.
-      .--.(   ).--.
-     (     `-'     )
-      `-.       .-'
-         `-----'`,
+    art: [
+      "          .-.",
+      "      .--.(   ).--.",
+      "     (     `-'     )",
+      "      `-.       .-'",
+      "         `-----'",
+    ].join('\n'),
   },
   {
     tone: 'blue' as const,
