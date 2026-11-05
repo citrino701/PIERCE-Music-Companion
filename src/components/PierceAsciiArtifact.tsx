@@ -30,7 +30,7 @@ const ARTWORKS = [
       "     (     `-'     )",
       "      `-.       .-'",
       "         `-----'",
-    ].join('\\n'),
+    ].join('\n'),
   },
   {
     tone: 'blue' as const,
