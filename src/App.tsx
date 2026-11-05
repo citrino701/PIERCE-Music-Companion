@@ -134,14 +134,14 @@ export default function App() {
     else void provider.play();
   }, [isPlaying, spotifyConnected]);
 
+  const handleSelectTrack = useCallback((track: TrackData) => {
+    void playbackProviderRef.current!.selectTrack(track);
+  }, []);
+
   const handleSeek = useCallback((newMs: number) => {
     const position = Math.max(0, Math.min(currentTrack.durationMs, newMs));
     void playbackProviderRef.current!.seek(position);
   }, [currentTrack.durationMs]);
-
-  const handleSelectTrack = useCallback((track: TrackData) => {
-    void playbackProviderRef.current!.selectTrack(track);
-  }, []);
 
   const handlePreviousTrack = useCallback(() => {
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
@@ -641,6 +641,8 @@ export default function App() {
                 isPlaying={isPlaying}
                 volume={volume}
                 activeLyric={activeLyric}
+                lyricsText={lyricsText}
+                onToggleShuffle={handleToggleShuffle}
                 activeChapter={activeChapter}
                 audioFeatures={audioFeatures}
                 visualSettings={visualSettings}
