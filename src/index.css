@@ -64,3 +64,31 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
 }
+
+
+/* PIERCE fullscreen ASCII field */
+.pierce-ascii {
+  color: #3970ff;
+  font-family: "Space Mono", monospace;
+  text-shadow: 0 0 8px rgba(45, 98, 255, .35);
+  white-space: pre;
+  will-change: transform, opacity;
+}
+.pierce-ascii-a { animation: pierce-ascii-drift-a 22s ease-in-out infinite alternate; }
+.pierce-ascii-b { animation: pierce-ascii-drift-b 17s ease-in-out infinite alternate; }
+.pierce-ascii-c { animation: pierce-ascii-drift-c 26s ease-in-out infinite alternate; }
+.pierce-ascii-scan {
+  background: repeating-linear-gradient(to bottom, transparent 0 5px, rgba(43, 91, 255, .12) 6px, transparent 7px);
+  mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+}
+.pierce-ascii-orbit { animation: pierce-ascii-appear 13s steps(1, end) infinite; }
+.pierce-lyrics-scroll { scrollbar-width: thin; scrollbar-color: rgba(62, 104, 255, .45) transparent; }
+@keyframes pierce-ascii-drift-a { from { transform: translate3d(0,0,0) skewY(-1deg); } to { transform: translate3d(22px,18px,0) skewY(1deg); } }
+@keyframes pierce-ascii-drift-b { from { transform: translate3d(0,0,0) rotate(-1deg); } to { transform: translate3d(-28px,24px,0) rotate(1deg); } }
+@keyframes pierce-ascii-drift-c { from { transform: translate3d(0,0,0); } to { transform: translate3d(18px,-20px,0); } }
+@keyframes pierce-ascii-appear {
+  0%, 18%, 100% { opacity: 0; transform: scale(.82) rotate(-8deg); }
+  22%, 36% { opacity: .9; transform: scale(1) rotate(0deg); }
+  40%, 74% { opacity: 0; transform: scale(1.12) rotate(8deg); }
+  78%, 91% { opacity: .65; transform: scale(.92) rotate(-4deg); }
+}
