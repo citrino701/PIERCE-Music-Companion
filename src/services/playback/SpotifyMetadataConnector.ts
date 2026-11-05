@@ -108,7 +108,7 @@ export function getSpotifyToken(): SpotifyToken | null {
 export async function getSpotifyNowPlaying(): Promise<SpotifyNowPlaying | null> {
   const token = getSpotifyToken();
   if (!token) throw new Error('Conecte sua conta Spotify novamente para atualizar a sessão.');
-  const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+  const response = await fetch('https://api.spotify.com/v1/me/player', {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
   if (response.status === 204) return null;
