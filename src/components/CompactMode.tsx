@@ -61,7 +61,7 @@ export const CompactMode: React.FC<CompactModeProps> = ({
         <div className="flex items-center justify-between pb-3.5">
           <div className="flex items-center gap-1.5">
             <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-base tracking-tight text-black">
-              SELVA®
+              PIERCE
             </span>
           </div>
 
@@ -238,7 +238,7 @@ export const CompactMode: React.FC<CompactModeProps> = ({
             {/* Cobalt Blue Dither Mosaic Pattern (image_681cb620.png in vivid cobalt blue) */}
             <div className="absolute top-10 right-0 w-12 h-16 pointer-events-none overflow-hidden opacity-90">
               <img
-                src="/public/assets/aistudio/image_681cb620.png"
+                src="/assets/aistudio/image_681cb620.png"
                 alt=""
                 className="w-full h-full object-cover mix-blend-multiply filter contrast-200"
                 style={{

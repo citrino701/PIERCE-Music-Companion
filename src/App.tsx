@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import cinematicBackdrop from './assets/images/tame_impala_person_sky_1793799892976.jpg';
 import { ViewMode, TrackData, VisualSettings } from './types';
 import { TRACK_CATALOG } from './data/tracks';
+import { DemoPlaybackProvider } from './services/playback/DemoPlaybackProvider';
 import {
   findActiveLyricIndex,
   findActiveChapterIndex,
@@ -29,37 +31,26 @@ export default function App() {
     intensity: 0.85,
   });
 
-  // Track playback timer loop
-  const lastTimeRef = useRef<number>(performance.now());
-  const animationFrameRef = useRef<number | null>(null);
+  // The demo uses the same provider contract reserved for future integrations.
+  const playbackProviderRef = useRef<DemoPlaybackProvider | null>(null);
+  if (!playbackProviderRef.current) {
+    playbackProviderRef.current = new DemoPlaybackProvider(currentTrack, 102000, true);
+  }
 
   useEffect(() => {
-    const loop = (now: number) => {
-      const delta = now - lastTimeRef.current;
-      lastTimeRef.current = now;
-
-      if (isPlaying) {
-        setProgressMs((prev) => {
-          const next = prev + delta;
-          if (next >= currentTrack.durationMs) {
-            return 0; // loop track
-          }
-          return next;
-        });
-      }
-
-      animationFrameRef.current = requestAnimationFrame(loop);
-    };
-
-    lastTimeRef.current = performance.now();
-    animationFrameRef.current = requestAnimationFrame(loop);
-
+    const provider = playbackProviderRef.current!;
+    const unsubscribe = provider.subscribe((snapshot) => {
+      if (snapshot.track) setCurrentTrack(snapshot.track);
+      setProgressMs(snapshot.progressMs);
+      setIsPlaying(snapshot.isPlaying);
+      if (snapshot.volume !== null) setVolume(snapshot.volume);
+    });
+    void provider.connect();
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      unsubscribe();
+      void provider.disconnect();
     };
-  }, [isPlaying, currentTrack.durationMs]);
+  }, []);
 
   // Derived state
   const activeLyricIndex = findActiveLyricIndex(currentTrack.lyrics, progressMs);
@@ -70,30 +61,36 @@ export default function App() {
 
   // Playback control handlers
   const handleTogglePlay = useCallback(() => {
-    setIsPlaying((prev) => !prev);
-  }, []);
+    const provider = playbackProviderRef.current!;
+    if (isPlaying) void provider.pause();
+    else void provider.play();
+  }, [isPlaying]);
 
   const handleSeek = useCallback((newMs: number) => {
-    setProgressMs(Math.max(0, Math.min(currentTrack.durationMs, newMs)));
+    const position = Math.max(0, Math.min(currentTrack.durationMs, newMs));
+    void playbackProviderRef.current!.seek(position);
   }, [currentTrack.durationMs]);
+
+  const handleSelectTrack = useCallback((track: TrackData) => {
+    void playbackProviderRef.current!.selectTrack(track);
+  }, []);
 
   const handlePreviousTrack = useCallback(() => {
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
     const prevIndex = (currentIndex - 1 + TRACK_CATALOG.length) % TRACK_CATALOG.length;
-    setCurrentTrack(TRACK_CATALOG[prevIndex]);
-    setProgressMs(0);
-  }, [currentTrack.id]);
+    handleSelectTrack(TRACK_CATALOG[prevIndex]);
+  }, [currentTrack.id, handleSelectTrack]);
 
   const handleNextTrack = useCallback(() => {
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
     const nextIndex = (currentIndex + 1) % TRACK_CATALOG.length;
-    setCurrentTrack(TRACK_CATALOG[nextIndex]);
-    setProgressMs(0);
-  }, [currentTrack.id]);
+    handleSelectTrack(TRACK_CATALOG[nextIndex]);
+  }, [currentTrack.id, handleSelectTrack]);
 
   const handleToggleMute = useCallback(() => {
-    setVolume((prev) => (prev > 0 ? 0 : 0.8));
-  }, []);
+    const nextVolume = volume > 0 ? 0 : 0.8;
+    playbackProviderRef.current!.setVolume(nextVolume);
+  }, [volume]);
 
   const handleUpdateVisualSettings = useCallback((updates: Partial<VisualSettings>) => {
     setVisualSettings((prev) => ({ ...prev, ...updates }));
@@ -152,7 +149,7 @@ export default function App() {
         {/* Left Edge Halftone / Dither Clusters */}
         <div className="absolute top-1/4 -left-2 w-32 h-64 opacity-25">
           <img
-            src="/public/assets/aistudio/image_681cb620.png"
+            src="/assets/aistudio/image_681cb620.png"
             alt=""
             className="w-full h-full object-cover filter contrast-200"
           />
@@ -161,7 +158,7 @@ export default function App() {
         {/* Right Edge Halftone / Dither Clusters */}
         <div className="absolute bottom-1/4 -right-2 w-36 h-72 opacity-25">
           <img
-            src="/public/assets/aistudio/image_681cb620.png"
+            src="/assets/aistudio/image_681cb620.png"
             alt=""
             className="w-full h-full object-cover filter contrast-200"
           />
@@ -178,10 +175,10 @@ export default function App() {
       {/* GLOBAL TOP HEADER (Matching image_fa343142.png) */}
       {!isImmersive && (
         <header className="relative z-30 pt-6 px-8 md:px-12 flex items-center justify-between">
-          {/* Top-Left: SELVA® + Hairline rule */}
+          {/* Top-Left: PIERCE + Hairline rule */}
           <div className="flex items-center gap-4">
             <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-2xl tracking-tight text-black">
-              SELVA®
+              PIERCE
             </span>
             <div className="h-px bg-black/25 w-20 sm:w-32 hidden sm:block" />
           </div>
@@ -292,7 +289,7 @@ export default function App() {
 
       {/* CENTRAL VIEWPORT */}
       <div className="flex-1 flex items-center justify-center relative z-20 py-4 px-4 sm:px-8">
-        {/* 1. BOARD OVERVIEW (Exact reproduction of image_fa343142.png with all 4 modes placed on table) */}
+        {/* 1. BOARD OVERVIEW: all five official PIERCE modes */}
         {isBoardView ? (
           <div className="w-full max-w-7xl mx-auto my-auto py-6 space-y-12">
             {/* Top Row: 01. Compacto (Left) & 02. Disco (Right) */}
@@ -352,7 +349,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Bottom Row: 03. Expandido (Left) & 04. Fullscreen (Right) */}
+            {/* Bottom Row: 03. Expandido & 04. Fullscreen */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-4">
               {/* 03. Expandido */}
               <div className="lg:col-span-6 flex flex-col">
@@ -365,8 +362,7 @@ export default function App() {
                     track={currentTrack}
                     tracks={TRACK_CATALOG}
                     onSelectTrack={(t) => {
-                      setCurrentTrack(t);
-                      setProgressMs(0);
+                      handleSelectTrack(t);
                     }}
                     progressMs={progressMs}
                     isPlaying={isPlaying}
@@ -405,7 +401,7 @@ export default function App() {
                 >
                   {/* Embedded mini Fullscreen preview */}
                   <img
-                    src="/src/assets/images/tame_impala_person_sky_1793799892976.jpg"
+                    src={cinematicBackdrop}
                     alt=""
                     className="w-full h-full object-cover filter contrast-125 brightness-75 group-hover:scale-105 transition-transform duration-700"
                   />
@@ -414,7 +410,7 @@ export default function App() {
                   {/* Left Rail */}
                   <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#121316]/90 border-r border-white/10 flex flex-col justify-between items-center py-4">
                     <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xs text-white">
-                      SELVA®
+                      PIERCE
                     </span>
                     <div className="flex flex-col gap-2">
                       <LayoutGrid className="w-3.5 h-3.5 text-white/50" />
@@ -428,7 +424,7 @@ export default function App() {
                   {/* Top-Left Cobalt Dither */}
                   <div className="absolute top-4 left-16 w-24 h-24 opacity-80 pointer-events-none">
                     <img
-                      src="/public/assets/aistudio/image_681cb620.png"
+                      src="/assets/aistudio/image_681cb620.png"
                       alt=""
                       className="w-full h-full object-contain filter contrast-200"
                     />
@@ -463,6 +459,40 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* 05. Zen preview */}
+            <div className="pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-mono text-black/70 font-medium">05. Zen</span>
+                <div className="h-px bg-black/20 w-16" />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBoardView(false);
+                  setCurrentMode('zen');
+                }}
+                className="relative w-full min-h-[190px] overflow-hidden rounded-2xl border border-black/10 bg-[#f7f5f0] p-8 text-left shadow-lg transition-transform hover:-translate-y-1"
+              >
+                <div
+                  className="absolute -left-10 -top-24 h-72 w-72 rounded-full blur-[70px] opacity-35"
+                  style={{ backgroundColor: currentTrack.accentColor }}
+                />
+                <div
+                  className="absolute -right-8 -bottom-32 h-80 w-80 rounded-full blur-[80px] opacity-25"
+                  style={{ backgroundColor: currentTrack.secondaryColor }}
+                />
+                <div className="relative z-10 flex min-h-[125px] flex-col justify-between">
+                  <span className="text-[10px] font-mono tracking-[0.2em] text-black/45">PIERCE / 05</span>
+                  <div>
+                    <p className="max-w-3xl font-['Plus_Jakarta_Sans',sans-serif] text-2xl font-medium tracking-tight text-black sm:text-3xl">
+                      {activeLyric?.text || 'O silêncio antes do compasso.'}
+                    </p>
+                    <p className="mt-3 text-xs font-mono text-black/45">ZEN EXPERIENCE · ABRIR MODO</p>
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
         ) : (
@@ -521,8 +551,7 @@ export default function App() {
                 track={currentTrack}
                 tracks={TRACK_CATALOG}
                 onSelectTrack={(t) => {
-                  setCurrentTrack(t);
-                  setProgressMs(0);
+                  handleSelectTrack(t);
                 }}
                 progressMs={progressMs}
                 isPlaying={isPlaying}

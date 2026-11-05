@@ -2,7 +2,7 @@ import React from 'react';
 import { TrackData, LyricLine, AudioFeatures, ViewMode } from '../types';
 import { NavigationRail } from './NavigationRail';
 import { formatTime } from '../services/playbackEngine';
-import { Play, Pause, SkipBack, SkipForward, LayoutGrid, Disc3 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 
 interface DiscModeProps {
   track: TrackData;
@@ -57,10 +57,10 @@ export const DiscMode: React.FC<DiscModeProps> = ({
           />
         </svg>
 
-        {/* Top: SELVA® Brand */}
+        {/* Top: PIERCE Brand */}
         <div className="relative z-10 pt-2">
           <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm tracking-tight text-black">
-            SELVA®
+            PIERCE
           </span>
         </div>
 
@@ -123,25 +123,25 @@ export const DiscMode: React.FC<DiscModeProps> = ({
           </div>
         </div>
 
-        {/* Bottom-Right Bento Mode Button */}
-        <button
-          type="button"
-          onClick={() => onSelectMode('expanded')}
-          aria-label="Abrir modo Expandido"
-          className="absolute bottom-4 right-4 z-20 p-2 bg-white/80 hover:bg-white rounded-full border border-black/10 shadow-xs cursor-pointer text-black"
-        >
-          <LayoutGrid className="w-3.5 h-3.5" />
-        </button>
+
 
         {/* Bottom-Left Dither Accent (peeking out) */}
         <div className="absolute -bottom-2 -left-2 w-10 h-10 pointer-events-none opacity-60 overflow-hidden">
           <img
-            src="/public/assets/aistudio/image_681cb620.png"
+            src="/assets/aistudio/image_681cb620.png"
             alt=""
             className="w-full h-full object-cover filter contrast-200"
           />
         </div>
       </div>
+
+      <NavigationRail
+        currentMode={currentMode}
+        onSelectMode={onSelectMode}
+        compactLabels={true}
+        className="mt-5"
+        theme="light"
+      />
     </div>
   );
 };

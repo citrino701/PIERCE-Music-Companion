@@ -76,7 +76,7 @@ export const ExpandedMode: React.FC<ExpandedModeProps> = ({
         <div className="flex items-center justify-between pb-6">
           <div className="flex items-center gap-2">
             <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-xl tracking-tight text-black">
-              SELVA®
+              PIERCE
             </span>
           </div>
 
@@ -115,7 +115,7 @@ export const ExpandedMode: React.FC<ExpandedModeProps> = ({
             {/* Left Dither Overlay wrap */}
             <div className="absolute -left-3 top-2 bottom-2 w-8 pointer-events-none opacity-85 z-10 overflow-hidden hidden sm:block">
               <img
-                src="/public/assets/aistudio/image_681cb620.png"
+                src="/assets/aistudio/image_681cb620.png"
                 alt=""
                 className="w-full h-full object-cover mix-blend-multiply filter contrast-200 brightness-90"
               />
@@ -249,7 +249,7 @@ export const ExpandedMode: React.FC<ExpandedModeProps> = ({
             {/* The Electric Cobalt Blue Dither Portrait Face */}
             <div className="relative w-64 h-72 pointer-events-none opacity-95">
               <img
-                src="/public/assets/aistudio/image_681cb620.png"
+                src="/assets/aistudio/image_681cb620.png"
                 alt=""
                 className="w-full h-full object-contain mix-blend-multiply filter contrast-200"
                 style={{
@@ -324,9 +324,9 @@ export const ExpandedMode: React.FC<ExpandedModeProps> = ({
                 </button>
               </div>
 
-              {/* Bottom Right Label: SELVA® / v0.1.0 / 2025 */}
+              {/* Bottom Right Label: PIERCE / v0.1.0 / 2025 */}
               <div className="flex flex-col items-end gap-1 text-[8px] font-mono text-black/40 leading-none">
-                <span>SELVA®</span>
+                <span>PIERCE</span>
                 <span>v0.1.0</span>
                 <span>/ 2025</span>
                 {/* 3-pixel corner graphic */}

@@ -30,7 +30,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
 
   return (
     <nav
-      aria-label="Modos de Visualização SELVA"
+      aria-label="Modos de Visualização PIERCE"
       className={`inline-flex items-center gap-1 p-1 rounded-full shadow-sm transition-colors ${
         isDark
           ? 'bg-[#121316]/90 backdrop-blur-md border border-white/10 text-white'
