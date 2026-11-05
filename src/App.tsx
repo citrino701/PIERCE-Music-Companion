@@ -14,7 +14,7 @@ import { ExpandedMode } from './components/ExpandedMode';
 import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
-import { pauseSpotifyPlayback, resumeSpotifyPlayback, fetchTrackLyrics } from './services/playback/SpotifyMetadataConnector';
+import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
 
@@ -26,6 +26,7 @@ export default function App() {
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [lyricsText, setLyricsText] = useState<string | null>(null);
   const [spotifyControlError, setSpotifyControlError] = useState('');
+  const [spotifyShuffle, setSpotifyShuffle] = useState(false);
   const spotifyErrorTimeoutRef = useRef<number | null>(null);
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
   const [volume, setVolume] = useState<number>(0.8);
@@ -139,20 +140,42 @@ export default function App() {
 
   const handleSeek = useCallback((newMs: number) => {
     const position = Math.max(0, Math.min(currentTrack.durationMs, newMs));
+    if (spotifyConnected) {
+      setProgressMs(position);
+      void seekSpotifyPlayback(position).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao avançar a faixa.'));
+      return;
+    }
     void playbackProviderRef.current!.seek(position);
-  }, [currentTrack.durationMs]);
+  }, [currentTrack.durationMs, spotifyConnected]);
 
   const handlePreviousTrack = useCallback(() => {
+    if (spotifyConnected) {
+      void skipSpotifyTrack('previous').catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao voltar a faixa.'));
+      return;
+    }
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
     const prevIndex = (currentIndex - 1 + TRACK_CATALOG.length) % TRACK_CATALOG.length;
-    handleSelectTrack(TRACK_CATALOG[prevIndex]);
-  }, [currentTrack.id, handleSelectTrack]);
+    void playbackProviderRef.current!.selectTrack(TRACK_CATALOG[prevIndex]);
+  }, [currentTrack.id, spotifyConnected]);
 
   const handleNextTrack = useCallback(() => {
+    if (spotifyConnected) {
+      void skipSpotifyTrack('next').catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao pular a faixa.'));
+      return;
+    }
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
     const nextIndex = (currentIndex + 1) % TRACK_CATALOG.length;
-    handleSelectTrack(TRACK_CATALOG[nextIndex]);
-  }, [currentTrack.id, handleSelectTrack]);
+    void playbackProviderRef.current!.selectTrack(TRACK_CATALOG[nextIndex]);
+  }, [currentTrack.id, spotifyConnected]);
+
+  const handleToggleShuffle = useCallback(() => {
+    const next = !spotifyShuffle;
+    if (spotifyConnected) {
+      void setSpotifyShuffle(next).then(() => setSpotifyShuffle(next)).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao alterar reprodução aleatória.'));
+      return;
+    }
+    setSpotifyShuffle(next);
+  }, [spotifyConnected, spotifyShuffle]);
 
   const handleToggleMute = useCallback(() => {
     const nextVolume = volume > 0 ? 0 : 0.8;
@@ -656,6 +679,8 @@ export default function App() {
                 isPlaying={isPlaying}
                 volume={volume}
                 activeLyric={activeLyric}
+                lyricsText={lyricsText}
+                onToggleShuffle={handleToggleShuffle}
                 activeChapter={activeChapter}
                 audioFeatures={audioFeatures}
                 visualSettings={visualSettings}
