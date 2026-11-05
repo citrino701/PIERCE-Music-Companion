@@ -80,7 +80,7 @@ export const PierceAsciiField: React.FC = () => {
     };
 
     const drawStar = (time: number) => {
-      const centerX = width * 0.735;
+      const centerX = width * 0.255;
       const centerY = height * 0.265;
       const radius = Math.min(width, height) * 0.205;
       const pulsePhase = 0.5 + 0.5 * Math.cos(time * Math.PI * 2 / 7);
