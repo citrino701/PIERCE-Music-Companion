@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PierceAsciiField } from './PierceAsciiField';
+import { PierceAsciiFrame } from './PierceAsciiFrame';
 import {
   TrackData,
   LyricLine,
@@ -95,6 +96,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       data-testid="fullscreen-mode-container"
       className="pierce-editorial-shell fixed inset-0 z-50 overflow-hidden select-none cursor-default flex"
     >
+      <PierceAsciiFrame />
       {/* Left Vertical Dark Rail (Matching image_fa343142.png) */}
       <div className="pierce-editorial-rail w-16 h-full flex flex-col justify-between items-center py-6 z-30 shrink-0">
         <div className="flex flex-col items-center gap-1">
