@@ -32,6 +32,7 @@ interface FullscreenModeProps {
   activeLyric?: LyricLine;
   lyricsText?: string | null;
   onToggleShuffle: () => void;
+  shuffleEnabled: boolean;
   activeChapter?: NarrativeChapter;
   audioFeatures: AudioFeatures;
   visualSettings: VisualSettings;
@@ -52,6 +53,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   activeLyric,
   lyricsText,
   onToggleShuffle,
+  shuffleEnabled,
   audioFeatures,
   currentMode,
   onSelectMode,
@@ -252,9 +254,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               type="button"
               onClick={onToggleShuffle}
               aria-label="Modo aleatório"
-              className={`p-1 transition-colors cursor-pointer ${
-                'text-white/60 hover:text-[#4778ff]'
-              }`}
+              className={`p-1 transition-colors cursor-pointer ${shuffleEnabled ? 'text-[#4778ff]' : 'text-white/40 hover:text-white'}`}
             >
               <Shuffle className="w-4 h-4" />
             </button>
