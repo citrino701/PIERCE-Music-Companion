@@ -132,7 +132,9 @@ async function spotifyPlaybackCommand(action: 'pause' | 'play'): Promise<void> {
     method: 'PUT',
     headers: { Authorization: 'Bearer ' + token.access_token },
   });
-  if (response.status === 204) return;
+  // Spotify documents 204, but some successful Player API responses arrive as 200/202.
+  // Treat every 2xx response as success; only surface actual HTTP failures.
+  if (response.ok) return;
   if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
   if (response.status === 403) throw new Error('O Spotify exige uma conta Premium e um dispositivo ativo para controlar a reprodução.');
   if (response.status === 404) throw new Error('Nenhum dispositivo Spotify ativo foi encontrado. Abra o Spotify e inicie uma faixa.');
