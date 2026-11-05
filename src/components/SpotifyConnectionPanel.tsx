@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   beginSpotifyAuthorization,
   completeSpotifyAuthorization,
@@ -20,8 +20,11 @@ export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConn
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
+  const refreshInFlight = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (refreshInFlight.current || document.visibilityState === 'hidden') return;
+    refreshInFlight.current = true;
     try {
       const snapshot = await getSpotifyNowPlaying();
       onSnapshot?.(snapshot);
@@ -33,6 +36,8 @@ export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConn
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível consultar o Spotify.');
       if (!getSpotifyToken()) setConnected(false);
+    } finally {
+      refreshInFlight.current = false;
     }
   }, [onSnapshot]);
 
@@ -56,8 +61,22 @@ export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConn
 
   useEffect(() => {
     if (!connected) return;
-    const timer = window.setInterval(() => { void refresh(); }, 15000);
-    return () => window.clearInterval(timer);
+
+    // Spotify não envia eventos push para mudanças feitas em outro dispositivo.
+    // Consultamos o estado completo a cada 2s e atualizamos imediatamente ao voltar
+    // para a aba, para refletir pause/play, troca de faixa e seek externo.
+    const timer = window.setInterval(() => { void refresh(); }, 2000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [connected, refresh]);
 
   const handleConnect = () => {
