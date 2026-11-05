@@ -1,0 +1,127 @@
+/**
+ * Spotify Web API experimental metadata connector.
+ * Uses Authorization Code + PKCE. No client secret is stored or required.
+ * Spotify audio is never captured, analyzed, or synchronized to visuals here.
+ */
+const CLIENT_ID = '22cbfb1b63b146b79892330d3838609f';
+const REDIRECT_URI = 'https://pierce-music-companion.hugoviajante.workers.dev/';
+const SCOPES = ['user-read-playback-state', 'user-read-currently-playing'];
+const TOKEN_KEY = 'pierce.spotify.token';
+const VERIFIER_KEY = 'pierce.spotify.pkce.verifier';
+const STATE_KEY = 'pierce.spotify.oauth.state';
+
+export interface SpotifyToken {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token?: string;
+  expires_at: number;
+  scope: string;
+}
+
+export interface SpotifyNowPlaying {
+  is_playing: boolean;
+  progress_ms: number | null;
+  item: {
+    id: string;
+    name: string;
+    duration_ms: number;
+    explicit?: boolean;
+    artists: Array<{ name: string }>;
+    album: { name: string; images?: Array<{ url: string; height?: number; width?: number }> };
+  } | null;
+}
+
+function randomString(length: number): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
+}
+
+function base64Url(bytes: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+}
+
+async function createChallenge(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return base64Url(digest);
+}
+
+export function beginSpotifyAuthorization(): void {
+  const verifier = base64Url(crypto.getRandomValues(new Uint8Array(64)).buffer);
+  const state = base64Url(crypto.getRandomValues(new Uint8Array(16)).buffer);
+  localStorage.setItem(VERIFIER_KEY, verifier);
+  localStorage.setItem(STATE_KEY, state);
+  void createChallenge(verifier).then((challenge) => {
+    const params = new URLSearchParams({
+      client_id: CLIENT_ID,
+      response_type: 'code',
+      redirect_uri: REDIRECT_URI,
+      code_challenge_method: 'S256',
+      code_challenge: challenge,
+      state,
+      scope: SCOPES.join(' '),
+    });
+    window.location.assign(`https://accounts.spotify.com/authorize?${params.toString()}`);
+  });
+}
+
+export async function completeSpotifyAuthorization(): Promise<boolean> {
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get('code');
+  if (!code) return false;
+  const state = url.searchParams.get('state');
+  const expectedState = localStorage.getItem(STATE_KEY);
+  const verifier = localStorage.getItem(VERIFIER_KEY);
+  if (!state || state !== expectedState || !verifier) {
+    throw new Error('A validação de segurança do Spotify falhou. Tente conectar novamente.');
+  }
+  const response = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: REDIRECT_URI,
+      code_verifier: verifier,
+    }),
+  });
+  if (!response.ok) throw new Error(`Falha ao trocar código Spotify (${response.status}).`);
+  const token = await response.json() as Omit<SpotifyToken, 'expires_at'>;
+  localStorage.setItem(TOKEN_KEY, JSON.stringify({ ...token, expires_at: Date.now() + token.expires_in * 1000 }));
+  localStorage.removeItem(VERIFIER_KEY);
+  localStorage.removeItem(STATE_KEY);
+  window.history.replaceState({}, document.title, REDIRECT_URI);
+  return true;
+}
+
+export function getSpotifyToken(): SpotifyToken | null {
+  const raw = localStorage.getItem(TOKEN_KEY);
+  if (!raw) return null;
+  try {
+    const token = JSON.parse(raw) as SpotifyToken;
+    return token.expires_at > Date.now() + 30_000 ? token : null;
+  } catch {
+    localStorage.removeItem(TOKEN_KEY);
+    return null;
+  }
+}
+
+export async function getSpotifyNowPlaying(): Promise<SpotifyNowPlaying | null> {
+  const token = getSpotifyToken();
+  if (!token) throw new Error('Conecte sua conta Spotify novamente para atualizar a sessão.');
+  const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+    headers: { Authorization: `Bearer ${token.access_token}` },
+  });
+  if (response.status === 204) return null;
+  if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
+  if (!response.ok) throw new Error(`Spotify API respondeu com erro ${response.status}.`);
+  return await response.json() as SpotifyNowPlaying;
+}
+
+export function disconnectSpotify(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(VERIFIER_KEY);
+  localStorage.removeItem(STATE_KEY);
+}
