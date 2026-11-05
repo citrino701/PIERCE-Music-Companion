@@ -79,7 +79,7 @@ export const PierceAsciiArtifact: React.FC<PierceAsciiArtifactProps> = ({ isPlay
       preload="auto"
       aria-hidden="true"
       tabIndex={-1}
-      className="pointer-events-none absolute z-[8] h-auto max-w-[42vw] object-contain mix-blend-screen"
+      className="pierce-artifact-video pointer-events-none absolute z-[8] h-auto max-w-[28vw] object-contain"
       style={{
         left: placement ? `${placement.left}%` : '50%',
         top: placement ? `${placement.top}%` : '50%',
@@ -87,6 +87,7 @@ export const PierceAsciiArtifact: React.FC<PierceAsciiArtifactProps> = ({ isPlay
         opacity: placement?.opacity ?? 0,
         transform: `translate(-50%, -50%) rotate(${placement?.rotation ?? 0}deg)`,
         transition: 'opacity 420ms ease, transform 650ms cubic-bezier(.2,.8,.2,1)',
+        mixBlendMode: 'multiply',
       }}
     />
   );
