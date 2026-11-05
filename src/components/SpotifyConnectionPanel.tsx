@@ -8,7 +8,12 @@ import {
   type SpotifyNowPlaying,
 } from '../services/playback/SpotifyMetadataConnector';
 
-export function SpotifyConnectionPanel() {
+interface SpotifyConnectionPanelProps {
+  onSnapshot?: (snapshot: SpotifyNowPlaying | null) => void;
+  onDisconnect?: () => void;
+}
+
+export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConnectionPanelProps) {
   const [connected, setConnected] = useState(false);
   const [track, setTrack] = useState<SpotifyNowPlaying['item']>(null);
   const [progressMs, setProgressMs] = useState<number | null>(null);
@@ -19,6 +24,7 @@ export function SpotifyConnectionPanel() {
   const refresh = useCallback(async () => {
     try {
       const snapshot = await getSpotifyNowPlaying();
+      onSnapshot?.(snapshot);
       setTrack(snapshot?.item ?? null);
       setProgressMs(snapshot?.progress_ms ?? null);
       setPlaying(snapshot?.is_playing ?? false);
@@ -28,7 +34,7 @@ export function SpotifyConnectionPanel() {
       setError(err instanceof Error ? err.message : 'Não foi possível consultar o Spotify.');
       if (!getSpotifyToken()) setConnected(false);
     }
-  }, []);
+  }, [onSnapshot]);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +72,7 @@ export function SpotifyConnectionPanel() {
     setProgressMs(null);
     setPlaying(false);
     setError('');
+    onDisconnect?.();
   };
 
   return (

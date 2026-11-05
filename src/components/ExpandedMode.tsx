@@ -145,7 +145,7 @@ export const ExpandedMode: React.FC<ExpandedModeProps> = ({
             {/* Song Title & Artist in Clean Swiss Grotesque */}
             <div className="mb-4">
               <h2 className="font-['Plus_Jakarta_Sans',sans-serif] text-2xl sm:text-3xl font-normal text-[#121114] leading-[1.12] tracking-tight">
-                The Less I Know<br />The Better
+                {track.title}
               </h2>
               <p className="font-['Plus_Jakarta_Sans',sans-serif] text-sm text-[#555458] mt-1 font-normal">
                 {track.artist}
