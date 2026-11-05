@@ -30,6 +30,9 @@ interface FullscreenModeProps {
   isPlaying: boolean;
   volume: number;
   activeLyric?: LyricLine;
+  lyricsText?: string | null;
+  onToggleShuffle: () => void;
+  shuffleEnabled: boolean;
   activeChapter?: NarrativeChapter;
   audioFeatures: AudioFeatures;
   visualSettings: VisualSettings;
@@ -48,6 +51,9 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   progressMs,
   isPlaying,
   activeLyric,
+  lyricsText,
+  onToggleShuffle,
+  shuffleEnabled,
   audioFeatures,
   currentMode,
   onSelectMode,
@@ -56,7 +62,6 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   onPrevious,
   onNext,
 }) => {
-  const [isShuffle, setIsShuffle] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
 
   useEffect(() => {
@@ -147,15 +152,19 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 
       {/* Main Full-Bleed Audiovisual Composition */}
       <div className="flex-1 relative h-full overflow-hidden flex flex-col justify-between">
-        {/* Background Cinema Still: Person looking up at clouds */}
         <div className="absolute inset-0">
-          <img
-            src={cinematicBackdrop}
-            alt="Person Looking Up at Clouds"
-            className="w-full h-full object-cover filter contrast-125 brightness-75"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/30" />
+          <img src={cinematicBackdrop} alt="" className="w-full h-full object-cover contrast-125 brightness-[0.42] saturate-[0.55]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#05070d]/90 via-[#05070d]/35 to-[#05070d]/80" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/45" />
         </div>
+        <div className="pierce-ascii-field absolute inset-0 z-[1] overflow-hidden pointer-events-none" aria-hidden="true">
+          <pre className="pierce-ascii pierce-ascii-a absolute -left-12 top-[-8%] text-[8px] md:text-[10px] leading-[0.92] opacity-45">{'░▒▓█▓▒░   .:+*##*+:.   ░▒▓█▓▒░\n▒▓██▓▒░  /  P I E R C E  \\  ░▒▓██▓▒\n▓███▓▒  <  SIGNAL / 01  >  ▒▓███▓\n▒▓██▓▒░  \\  .:+*##*+:.  /  ░▒▓██▓▒\n░▒▓█▓▒░   :::::::::::::   ░▒▓█▓▒░\n'.repeat(12)}</pre>
+          <pre className="pierce-ascii pierce-ascii-b absolute right-[-5%] top-[8%] text-[9px] md:text-xs leading-[1.05] opacity-35 text-right">{'      .       *       .\n   .  /|\\  .   .  /|\\\n  --  / | \\  --  / | \\ --\n   .   / \\   .    / \\  .\n      /___\\      /___\\\n'.repeat(10)}</pre>
+          <pre className="pierce-ascii pierce-ascii-c absolute bottom-[-8%] left-[12%] text-[7px] md:text-[9px] leading-none opacity-30">{'01001000 01000101 01000001 01010010\n░░▒▒▓▓████▓▓▒▒░░░░▒▒▓▓████▓▓▒▒░░\n<  THE ROOM IS STILL MOVING  >\n'.repeat(13)}</pre>
+          <div className="absolute inset-0 pierce-ascii-scan opacity-20" />
+        </div>
+
+        <div className="pierce-ascii-orbit absolute z-[12] right-[12%] top-[22%] pointer-events-none select-none text-[#2864ff]" aria-hidden="true"><pre className="font-mono text-[8px] sm:text-[10px] leading-[0.9] drop-shadow-[0_0_12px_rgba(38,94,255,.9)]">{'   .-====-.\n  /  .::.  \\\n |  (::::)  |\n  \\  `::`  /\n   `-====-`'}</pre></div>
 
         {/* Top-Left Cobalt Blue Halftone Dither Pixel Art */}
         <div className="absolute top-6 left-6 w-52 h-52 pointer-events-none opacity-85 z-20">
@@ -186,8 +195,9 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
           </button>
         </div>
 
+        {lyricsText && (<div className="absolute z-20 right-7 md:right-14 top-[22%] md:top-[24%] w-[min(38vw,520px)] max-h-[52vh] overflow-y-auto text-right pr-1 pierce-lyrics-scroll"><div className="font-mono text-[9px] tracking-[0.28em] text-[#4778ff] mb-4">LYRIC FRAGMENT / TEXT</div><p className="font-['Plus_Jakarta_Sans',sans-serif] text-lg md:text-2xl lg:text-3xl font-semibold leading-[1.12] tracking-[-0.045em] text-white whitespace-pre-line [text-align:justify] [text-align-last:right] drop-shadow-[0_2px_18px_rgba(0,0,0,.8)]">{lyricsText}</p></div>)}
         {/* Active Kinetic Lyric Floating in Negative Space */}
-        {activeLyric && (
+        {!lyricsText && activeLyric && (
           <div className="relative z-20 px-8 md:px-14 my-auto max-w-3xl">
             <div className="text-xs font-mono text-[#002aff] tracking-widest uppercase mb-1 font-semibold">
               REC SYNC // {formatTime(activeLyric.startMs)}
@@ -242,11 +252,9 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => setIsShuffle(!isShuffle)}
+              onClick={onToggleShuffle}
               aria-label="Modo aleatório"
-              className={`p-1 transition-colors cursor-pointer ${
-                isShuffle ? 'text-white' : 'text-white/40 hover:text-white'
-              }`}
+              className={`p-1 transition-colors cursor-pointer ${shuffleEnabled ? 'text-[#4778ff]' : 'text-white/40 hover:text-white'}`}
             >
               <Shuffle className="w-4 h-4" />
             </button>

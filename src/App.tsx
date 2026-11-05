@@ -14,7 +14,7 @@ import { ExpandedMode } from './components/ExpandedMode';
 import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
-import { pauseSpotifyPlayback, resumeSpotifyPlayback, fetchTrackLyrics } from './services/playback/SpotifyMetadataConnector';
+import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
 
@@ -25,8 +25,9 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [lyricsText, setLyricsText] = useState<string | null>(null);
-  const [lyricsOpen, setLyricsOpen] = useState(false);
   const [spotifyControlError, setSpotifyControlError] = useState('');
+  const [spotifyShuffle, setSpotifyShuffle] = useState(false);
+  const spotifyErrorTimeoutRef = useRef<number | null>(null);
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
   const [volume, setVolume] = useState<number>(0.8);
   const [visualSettings, setVisualSettings] = useState<VisualSettings>({
@@ -40,6 +41,7 @@ export default function App() {
 
   const handleSpotifySnapshot = useCallback((snapshot: SpotifyNowPlaying | null) => {
     setSpotifyConnected(true);
+    if (typeof snapshot?.shuffle_state === 'boolean') setSpotifyShuffle(snapshot.shuffle_state);
     if (!snapshot?.item) {
       setIsPlaying(false);
       setProgressMs(0);
@@ -117,7 +119,15 @@ export default function App() {
     if (spotifyConnected) {
       setSpotifyControlError('');
       const command = isPlaying ? pauseSpotifyPlayback : resumeSpotifyPlayback;
-      void command().then(() => setIsPlaying(!isPlaying)).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao controlar o Spotify.'));
+      void command().then(() => {
+        setIsPlaying(!isPlaying);
+        setSpotifyControlError('');
+        if (spotifyErrorTimeoutRef.current !== null) window.clearTimeout(spotifyErrorTimeoutRef.current);
+      }).catch((error) => {
+        setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao controlar o Spotify.');
+        if (spotifyErrorTimeoutRef.current !== null) window.clearTimeout(spotifyErrorTimeoutRef.current);
+        spotifyErrorTimeoutRef.current = window.setTimeout(() => setSpotifyControlError(''), 4500);
+      });
       return;
     }
     const provider = playbackProviderRef.current!;
@@ -125,26 +135,48 @@ export default function App() {
     else void provider.play();
   }, [isPlaying, spotifyConnected]);
 
-  const handleSeek = useCallback((newMs: number) => {
-    const position = Math.max(0, Math.min(currentTrack.durationMs, newMs));
-    void playbackProviderRef.current!.seek(position);
-  }, [currentTrack.durationMs]);
-
   const handleSelectTrack = useCallback((track: TrackData) => {
     void playbackProviderRef.current!.selectTrack(track);
   }, []);
 
+  const handleSeek = useCallback((newMs: number) => {
+    const position = Math.max(0, Math.min(currentTrack.durationMs, newMs));
+    if (spotifyConnected) {
+      setProgressMs(position);
+      void seekSpotifyPlayback(position).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao avançar a faixa.'));
+      return;
+    }
+    void playbackProviderRef.current!.seek(position);
+  }, [currentTrack.durationMs, spotifyConnected]);
+
   const handlePreviousTrack = useCallback(() => {
+    if (spotifyConnected) {
+      void skipSpotifyTrack('previous').catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao voltar a faixa.'));
+      return;
+    }
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
     const prevIndex = (currentIndex - 1 + TRACK_CATALOG.length) % TRACK_CATALOG.length;
-    handleSelectTrack(TRACK_CATALOG[prevIndex]);
-  }, [currentTrack.id, handleSelectTrack]);
+    void playbackProviderRef.current!.selectTrack(TRACK_CATALOG[prevIndex]);
+  }, [currentTrack.id, spotifyConnected]);
 
   const handleNextTrack = useCallback(() => {
+    if (spotifyConnected) {
+      void skipSpotifyTrack('next').catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao pular a faixa.'));
+      return;
+    }
     const currentIndex = TRACK_CATALOG.findIndex((t) => t.id === currentTrack.id);
     const nextIndex = (currentIndex + 1) % TRACK_CATALOG.length;
-    handleSelectTrack(TRACK_CATALOG[nextIndex]);
-  }, [currentTrack.id, handleSelectTrack]);
+    void playbackProviderRef.current!.selectTrack(TRACK_CATALOG[nextIndex]);
+  }, [currentTrack.id, spotifyConnected]);
+
+  const handleToggleShuffle = useCallback(() => {
+    const next = !spotifyShuffle;
+    if (spotifyConnected) {
+      void setSpotifyShuffle(next).then(() => setSpotifyShuffle(next)).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao alterar reprodução aleatória.'));
+      return;
+    }
+    setSpotifyShuffle(next);
+  }, [spotifyConnected, spotifyShuffle]);
 
   const handleToggleMute = useCallback(() => {
     const nextVolume = volume > 0 ? 0 : 0.8;
@@ -348,13 +380,6 @@ export default function App() {
       )}
 
       {spotifyControlError && <div className="fixed top-16 right-5 z-[70] max-w-sm rounded-lg bg-black text-white px-4 py-3 text-xs shadow-xl">{spotifyControlError}</div>}
-
-      {lyricsText && (
-        <div className="fixed bottom-5 right-5 z-[60]">
-          <button type="button" onClick={() => setLyricsOpen((open) => !open)} className="rounded-full border border-white/20 bg-black/80 px-4 py-2 text-[10px] font-mono tracking-widest text-white shadow-lg backdrop-blur">LYRICS {lyricsOpen ? '−' : '+'}</button>
-          {lyricsOpen && <div className="absolute bottom-12 right-0 w-72 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-xl border border-white/15 bg-black/90 p-4 text-sm leading-6 text-white shadow-2xl">{lyricsText}</div>}
-        </div>
-      )}
 
       {isImmersive && (
         <div className="fixed right-5 top-5 z-50">
@@ -632,6 +657,9 @@ export default function App() {
                 isPlaying={isPlaying}
                 volume={volume}
                 activeLyric={activeLyric}
+                lyricsText={lyricsText}
+                onToggleShuffle={handleToggleShuffle}
+                shuffleEnabled={spotifyShuffle}
                 activeChapter={activeChapter}
                 audioFeatures={audioFeatures}
                 visualSettings={visualSettings}
@@ -653,6 +681,8 @@ export default function App() {
                 isPlaying={isPlaying}
                 volume={volume}
                 activeLyric={activeLyric}
+                lyricsText={lyricsText}
+                onToggleShuffle={handleToggleShuffle}
                 activeChapter={activeChapter}
                 audioFeatures={audioFeatures}
                 visualSettings={visualSettings}
