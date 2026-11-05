@@ -21,6 +21,7 @@ export interface SpotifyToken {
 
 export interface SpotifyNowPlaying {
   is_playing: boolean;
+  shuffle_state?: boolean;
   progress_ms: number | null;
   item: {
     id: string;
