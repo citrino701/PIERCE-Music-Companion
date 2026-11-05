@@ -13,6 +13,7 @@ import { DiscMode } from './components/DiscMode';
 import { ExpandedMode } from './components/ExpandedMode';
 import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
+import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
 
 export default function App() {
@@ -279,8 +280,9 @@ export default function App() {
             </button>
           </div>
 
-          {/* Top-Right: MUSIC / VISUAL / YOU + crosshair */}
+          {/* Top-Right: Spotify metadata connection + product signature */}
           <div className="flex items-center gap-3 text-[11px] font-mono tracking-widest uppercase text-black/70">
+            <SpotifyConnectionPanel />
             <span className="hidden sm:inline">MUSIC / VISUAL / YOU</span>
             <span className="text-sm font-light text-black/80">+</span>
           </div>
