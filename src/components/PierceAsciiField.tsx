@@ -1,152 +1,230 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
-const RAMP = ' .·:-=+*#%@';
+type Point3D = { x: number; y: number; z: number; edge: boolean };
+
+const FACE = ['·', ':', '+', '=', '*', '&', '#'];
+const EDGE = ['%', '&', '#', '8'];
+const GLYPH = [...'魂浄濾靈聲守⊕⊥▽ψ♆&%$#@8Ψ∆∇≡≠'];
+const TWINK = ['.', '·', '+', '*', '✦'];
+const COLORS = ['#69766a', '#9a8a58', '#637aa8'];
+
+const hash = (n: number) => {
+  const value = Math.sin(n * 127.1) * 43758.5453;
+  return value - Math.floor(value);
+};
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, value));
 
 export const PierceAsciiField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [mode, setMode] = useState<'ascii' | 'points'>('ascii');
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
 
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const startedAt = performance.now();
     let width = 0;
     let height = 0;
     let dpr = 1;
-    let cell = 9;
-    let columns = 0;
-    let rows = 0;
-    let mask = new Float32Array();
-    let random = new Float32Array();
+    let cell = 10;
+    let points: Point3D[] = [];
     let animationFrame = 0;
-    const startedAt = performance.now();
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const pointer = { x: -9999, y: -9999 };
 
-    const clamp = (value: number, min: number, max: number) =>
-      Math.max(min, Math.min(max, value));
+    const buildWordmark = () => {
+      const source = document.createElement('canvas');
+      source.width = 420;
+      source.height = 120;
+      const sourceContext = source.getContext('2d');
+      if (!sourceContext) return;
+      sourceContext.clearRect(0, 0, source.width, source.height);
+      sourceContext.fillStyle = '#fff';
+      sourceContext.textAlign = 'center';
+      sourceContext.textBaseline = 'middle';
+      sourceContext.font = '900 104px Arial Black, Impact, sans-serif';
+      sourceContext.fillText('PiErCe', 210, 62);
+
+      const pixels = sourceContext.getImageData(0, 0, source.width, source.height).data;
+      const next: Point3D[] = [];
+      for (let y = 10; y < 112; y += 4) {
+        for (let x = 4; x < 416; x += 4) {
+          if (pixels[(y * source.width + x) * 4 + 3] < 100) continue;
+          const edge =
+            pixels[(y * source.width + Math.max(0, x - 4)) * 4 + 3] < 100 ||
+            pixels[(y * source.width + Math.min(419, x + 4)) * 4 + 3] < 100 ||
+            pixels[(Math.max(0, y - 4) * source.width + x) * 4 + 3] < 100 ||
+            pixels[(Math.min(119, y + 4) * source.width + x) * 4 + 3] < 100;
+          next.push({ x: (x - 210) / 420, y: (y - 60) / 420, z: 0.035, edge });
+          next.push({ x: (x - 210) / 420, y: (y - 60) / 420, z: -0.035, edge });
+        }
+      }
+      points = next;
+    };
 
     const build = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = window.innerWidth;
       height = window.innerHeight;
-      cell = width < 600 ? 8 : 11;
-      columns = Math.ceil(width / cell);
-      rows = Math.ceil(height / cell);
+      cell = width < 600 ? 8 : 10;
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
-
-      const source = document.createElement('canvas');
-      source.width = columns;
-      source.height = rows;
-      const sourceContext = source.getContext('2d');
-      if (!sourceContext) return;
-      sourceContext.fillStyle = '#000';
-      sourceContext.fillRect(0, 0, columns, rows);
-      sourceContext.fillStyle = '#fff';
-      sourceContext.textAlign = 'center';
-      sourceContext.textBaseline = 'middle';
-      const face = "'Arial Black', Impact, 'Helvetica Neue', sans-serif";
-      sourceContext.font = `900 100px ${face}`;
-      const measured = sourceContext.measureText('PiErCe').width;
-      const fontSize = Math.min(100 * columns * 0.38 / measured, rows * 0.19);
-      sourceContext.font = `900 ${fontSize}px ${face}`;
-      sourceContext.fillText('PiErCe', columns / 2, rows / 2);
-      const pixels = sourceContext.getImageData(0, 0, columns, rows).data;
-      mask = new Float32Array(columns * rows);
-      random = new Float32Array(columns * rows);
-      for (let i = 0; i < mask.length; i += 1) {
-        mask[i] = pixels[i * 4] / 255;
-        random[i] = Math.random();
-      }
+      buildWordmark();
     };
 
-    const draw = (now: number) => {
-      const elapsed = reducedMotion ? 4 : (now - startedAt) / 1000;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#8f8b83';
+    const put = (character: string, x: number, y: number, alpha: number, color = '#77736b') => {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.fillText(character, x, y);
+    };
+
+    const drawStar = (time: number) => {
+      const centerX = width * 0.735;
+      const centerY = height * 0.265;
+      const radius = Math.min(width, height) * 0.205;
+      const pulsePhase = 0.5 + 0.5 * Math.cos(time * Math.PI * 2 / 7);
+      const pulse = 0.12 + 0.88 * Math.pow(pulsePhase, 1.4);
+      const angle = 0.12 * Math.sin(time * 0.35);
+      const ca = Math.cos(angle);
+      const sa = Math.sin(angle);
+      const stepX = width < 600 ? 10 : 12;
+      const stepY = width < 600 ? 17 : 20;
+
+      ctx.font = (cell * 0.9) + 'px ui-monospace, Menlo, Consolas, monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = `${cell * 1.2}px ui-monospace, Menlo, Consolas, monospace`;
 
-      const reveal = Math.min(1, elapsed / 2.8);
-      const radius = 90;
-      for (let y = 0; y < rows; y += 1) {
-        for (let x = 0; x < columns; x += 1) {
-          const index = y * columns + x;
-          const revealMask = clamp((reveal * 1.7 - (x / columns) * 0.7 - random[index] * 0.4) * 3, 0, 1);
-          const logo = mask[index] * revealMask;
-          const shimmer = 0.5 + 0.5 * Math.sin(x * 0.21 + elapsed * 0.9) * Math.cos(y * 0.17 - elapsed * 0.6);
-          let intensity = logo * 0.92 + (1 - logo) * (0.018 + 0.07 * shimmer);
-
-          let px = x * cell + cell / 2;
-          let py = y * cell + cell / 2;
-          const dx = px - pointer.x;
-          const dy = py - pointer.y;
-          const distance = Math.hypot(dx, dy);
-          if (distance > 0.001 && distance < radius) {
-            const force = (1 - distance / radius) ** 2;
-            px += (dx / distance) * force * 28;
-            py += (dy / distance) * force * 28;
-            intensity = Math.min(1, intensity + force * 0.35);
-          }
-
-          if (intensity < 0.035) continue;
-          ctx.globalAlpha = Math.min(0.82, 0.12 + intensity * 0.62);
-          if (mode === 'points') {
-            ctx.beginPath();
-            ctx.arc(px, py, cell * 0.42 * Math.sqrt(intensity), 0, Math.PI * 2);
-            ctx.fill();
-          } else {
-            const character = RAMP[Math.min(RAMP.length - 1, (intensity * RAMP.length) | 0)];
-            if (character !== ' ') ctx.fillText(character, px, py);
-          }
+      for (let y = centerY - radius; y <= centerY + radius; y += stepY) {
+        for (let x = centerX - radius; x <= centerX + radius; x += stepX) {
+          const rawX = (x - centerX) / radius;
+          const rawY = (y - centerY) / radius;
+          const rx = rawX * ca + rawY * sa;
+          const ry = -rawX * sa + rawY * ca;
+          const ax = Math.abs(rx);
+          const ay = Math.abs(ry);
+          const distance = Math.hypot(rx, ry);
+          const core = clamp(1.15 - Math.sqrt(ax) - Math.sqrt(ay), 0, 1);
+          const halo = 0.62 / (1 + Math.pow(distance / 0.22, 2));
+          const rays =
+            Math.exp(-ay * 28) * Math.exp(-ax * 2.2) +
+            Math.exp(-ax * 28) * Math.exp(-ay * 2.2);
+          const diagonal = 0.22 * (
+            Math.exp(-Math.abs(rx + ry) * 28) * Math.exp(-Math.abs(rx - ry) * 3) +
+            Math.exp(-Math.abs(rx - ry) * 28) * Math.exp(-Math.abs(rx + ry) * 3)
+          );
+          let brightness = (core + halo + rays * 0.6 + diagonal) * pulse;
+          brightness *= 0.94 + (hash(Math.floor(x * 0.3 + y * 0.7) + Math.floor(time * 8)) - 0.5) * 0.14;
+          if (brightness < 0.08) continue;
+          const flicker = Math.pow(0.5 + 0.5 * Math.sin(time * 1.4 + hash(x + y) * 6.28), 3);
+          const character = brightness > 0.72 && flicker > 0.45
+            ? GLYPH[Math.floor(hash(x * 3 + y + Math.floor(time * 4)) * GLYPH.length)]
+            : FACE[Math.min(FACE.length - 1, Math.floor(brightness * FACE.length))];
+          put(character, x, y, Math.min(0.28, 0.035 + brightness * 0.17), brightness > 0.78 ? '#8c8a7d' : '#9b978e');
         }
       }
-      ctx.globalAlpha = 1;
-      if (!reducedMotion) animationFrame = window.requestAnimationFrame(draw);
+
+      const stars = 42;
+      for (let i = 0; i < stars; i += 1) {
+        const x = 24 + hash(i + 1) * Math.max(1, width - 48);
+        const y = 24 + hash(i + 91) * Math.max(1, height - 48);
+        const dx = (x - centerX) / radius;
+        const dy = (y - centerY) / radius;
+        if (Math.hypot(dx, dy) < 1.05) continue;
+        const twinkle = Math.pow(0.5 + 0.5 * Math.sin(time * (0.4 + hash(i + 5)) + hash(i + 9) * 6.28), 3);
+        const glyph = TWINK[Math.floor(hash(i + Math.floor(time * 0.3)) * TWINK.length)];
+        put(glyph, x, y, 0.035 + twinkle * 0.13, '#89867d');
+      }
+
+      return pulse;
     };
 
-    const onPointerMove = (event: PointerEvent) => {
-      pointer.x = event.clientX;
-      pointer.y = event.clientY;
+    const drawWordmark = (time: number) => {
+      const scale = Math.min(width * 0.76, 900);
+      const centerX = width * 0.34;
+      const centerY = height * 0.54;
+      const rotation = reducedMotion ? 0.18 : Math.sin(time * 0.32) * 0.28 + time * 0.12;
+      const cosine = Math.cos(rotation);
+      const sine = Math.sin(rotation);
+
+      ctx.font = (width < 600 ? '8px' : '10px') + ' ui-monospace, Menlo, Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      for (let i = 0; i < points.length; i += 1) {
+        const point = points[i];
+        const x = point.x * scale;
+        const z = point.z * scale;
+        const rotatedX = x * cosine + z * sine;
+        const depth = -x * sine + z * cosine;
+        const perspective = 1.45 / (1.45 - depth / Math.max(scale, 1));
+        const screenX = centerX + rotatedX * perspective;
+        const screenY = centerY + point.y * scale * 1.55 * perspective;
+        if (screenX < 62 || screenX > width - 12 || screenY < 12 || screenY > height - 12) continue;
+
+        const frontLight = Math.max(0, point.z > 0 ? cosine : -cosine);
+        const brightness = point.edge ? 0.35 + Math.abs(sine) * 0.32 : 0.22 + frontLight * 0.62;
+        const character = point.edge
+          ? EDGE[Math.floor(hash(i) * EDGE.length)]
+          : FACE[Math.min(FACE.length - 1, Math.floor(brightness * FACE.length))];
+        const color = point.edge ? '#69766a' : (i % 13 === 0 ? '#637aa8' : '#77736b');
+        put(character, screenX, screenY, point.edge ? 0.22 : 0.12 + brightness * 0.28, color);
+      }
     };
-    const onPointerLeave = () => {
-      pointer.x = -9999;
-      pointer.y = -9999;
+
+    const drawDetails = (time: number, pulse: number) => {
+      ctx.font = '9px ui-monospace, Menlo, Consolas, monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const code = '4CY / LUM ' + String(Math.round(pulse * 100)).padStart(3, '0') + '%';
+      [...code].forEach((character, index) => put(character, 25 + index * 8, 34, 0.26, '#77736b'));
+
+      const dotColors = ['#718b76', '#718b76', '#b4a36d', '#b4a36d', '#b4a36d', '#7184a8'];
+      for (let row = 0; row < 6; row += 1) {
+        for (let column = 0; column < 12; column += 1) {
+          const x = 26 + column * 8;
+          const y = height - 76 + row * 8;
+          if (y < 20 || x > width - 20) continue;
+          const opacity = 0.09 + 0.24 * hash(row * 31 + column + Math.floor(time * 1.5));
+          put('•', x, y, opacity, dotColors[row]);
+        }
+      }
+
+      ctx.globalAlpha = 0.11;
+      ctx.fillStyle = '#77736b';
+      ctx.fillRect(20, 54, 1, Math.max(60, height - 120));
+      ctx.fillRect(width - 22, 54, 1, Math.max(60, height - 120));
+      ctx.globalAlpha = 1;
     };
+
+    const frame = (now: number) => {
+      const time = reducedMotion ? 1.2 : (now - startedAt) / 1000;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      const pulse = drawStar(time);
+      drawWordmark(time);
+      drawDetails(time, pulse);
+      ctx.globalAlpha = 1;
+      if (!reducedMotion) animationFrame = window.requestAnimationFrame(frame);
+    };
+
     const onResize = () => {
       build();
-      if (reducedMotion) draw(performance.now());
+      if (reducedMotion) frame(performance.now());
     };
 
     build();
-    animationFrame = window.requestAnimationFrame(draw);
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
-    window.addEventListener('pointerleave', onPointerLeave);
+    animationFrame = window.requestAnimationFrame(frame);
     window.addEventListener('resize', onResize);
     return () => {
       window.cancelAnimationFrame(animationFrame);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerleave', onPointerLeave);
       window.removeEventListener('resize', onResize);
     };
-  }, [mode]);
+  }, []);
 
   return (
-    <div className="pierce-ascii-interaction absolute inset-0 z-[2]" aria-label="Campo ASCII interativo">
-      <canvas ref={canvasRef} className="h-full w-full" aria-hidden="true" />
-      <button
-        type="button"
-        className="pierce-ascii-mode"
-        onClick={() => setMode((current) => current === 'ascii' ? 'points' : 'ascii')}
-        aria-label={mode === 'ascii' ? 'Alternar para pontos' : 'Alternar para ASCII'}
-        title="Alternar ASCII / pontos"
-      >
-        {mode === 'ascii' ? 'ASCII' : 'POINTS'}
-      </button>
+    <div className="pierce-ambient-composition absolute inset-0 z-[2] pointer-events-none" aria-hidden="true">
+      <canvas ref={canvasRef} className="h-full w-full" />
     </div>
   );
 };
