@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PierceAsciiField } from './PierceAsciiField';
-import { PierceAsciiArtifact } from './PierceAsciiArtifact';
 import {
   TrackData,
   LyricLine,
@@ -163,7 +162,6 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 
       {/* Main Full-Bleed Audiovisual Composition */}
       <div ref={surfaceRef} className="pierce-fullscreen-surface pierce-editorial-canvas flex-1 relative h-full overflow-hidden flex flex-col justify-between">
-        <PierceAsciiArtifact isPlaying={isPlaying} />
         {/* Top-Right: ESC Exit Button */}
         <div className="pierce-topbar relative z-30 p-6 flex justify-end items-center gap-3">
           <button
