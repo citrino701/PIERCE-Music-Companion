@@ -32,11 +32,6 @@ export interface SpotifyNowPlaying {
   } | null;
 }
 
-function randomString(length: number): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
-  return Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
-}
-
 function base64Url(bytes: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(bytes)))
     .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
