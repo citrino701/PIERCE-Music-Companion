@@ -94,15 +94,13 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   return (
     <div
       data-testid="fullscreen-mode-container"
-      className="fixed inset-0 z-50 bg-[#16171a] text-white overflow-hidden select-none cursor-default flex"
+      className="pierce-editorial-shell fixed inset-0 z-50 overflow-hidden select-none cursor-default flex"
     >
       <PierceAsciiField />
       {/* Left Vertical Dark Rail (Matching image_fa343142.png) */}
-      <div className="w-16 h-full bg-[#121316] border-r border-white/10 flex flex-col justify-between items-center py-6 z-30 shrink-0">
+      <div className="pierce-editorial-rail w-16 h-full flex flex-col justify-between items-center py-6 z-30 shrink-0">
         <div className="flex flex-col items-center gap-1">
-          <span className="font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm tracking-tight text-white">
-            PIERCE
-          </span>
+          <span className="pierce-wordmark font-['Plus_Jakarta_Sans',sans-serif] font-semibold text-[13px] tracking-[-0.06em]">PiErCe</span>
         </div>
 
         {/* Vertical Mode Icons */}
@@ -111,7 +109,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
             type="button"
             onClick={() => onSelectMode('compact')}
             aria-label="Modo Compacto"
-            className="p-1.5 text-white/50 hover:text-white transition-colors cursor-pointer"
+            className="pierce-rail-button p-1.5 transition-colors cursor-pointer"
             title="01. Compacto"
           >
             <LayoutGrid className="w-4 h-4" />
@@ -121,7 +119,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
             type="button"
             onClick={() => onSelectMode('disc')}
             aria-label="Modo Disco"
-            className="p-1.5 text-white/50 hover:text-white transition-colors cursor-pointer"
+            className="pierce-rail-button p-1.5 transition-colors cursor-pointer"
             title="02. Disco"
           >
             <Disc3 className="w-4 h-4" />
@@ -131,7 +129,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
             type="button"
             onClick={() => onSelectMode('expanded')}
             aria-label="Modo Expandido"
-            className="p-1.5 text-white/50 hover:text-white transition-colors cursor-pointer"
+            className="pierce-rail-button p-1.5 transition-colors cursor-pointer"
             title="03. Expandido"
           >
             <Square className="w-4 h-4" />
@@ -141,75 +139,65 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
             type="button"
             onClick={() => onSelectMode('fullscreen')}
             aria-label="Modo Fullscreen"
-            className="p-1.5 text-white transition-colors cursor-pointer font-bold"
+            className="pierce-rail-button pierce-rail-button-active p-1.5 transition-colors cursor-pointer font-bold"
             title="04. Fullscreen"
           >
-            <Monitor className="w-4 h-4 text-[#002aff]" />
+            <Monitor className="w-4 h-4" />
           </button>
 
           <button
             type="button"
             onClick={() => onSelectMode('zen')}
             aria-label="Modo Zen"
-            className="p-1.5 text-white/50 hover:text-white transition-colors cursor-pointer"
+            className="pierce-rail-button p-1.5 transition-colors cursor-pointer"
             title="05. Zen"
           >
             <Wind className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="text-[9px] font-mono text-white/30">
+        <div className="pierce-version text-[9px] font-mono">
           v0.1
         </div>
       </div>
 
       {/* Main Full-Bleed Audiovisual Composition */}
-      <div ref={surfaceRef} className="pierce-fullscreen-surface flex-1 relative h-full overflow-hidden flex flex-col justify-between">
+      <div ref={surfaceRef} className="pierce-fullscreen-surface pierce-editorial-canvas flex-1 relative h-full overflow-hidden flex flex-col justify-between">
         <PierceAsciiArtifact isPlaying={isPlaying} />
-        <div className="pierce-signal-pond absolute inset-0" aria-hidden="true"><div className="pierce-pond-ring pierce-pond-ring-one" /><div className="pierce-pond-ring pierce-pond-ring-two" /><div className="pierce-pond-ring pierce-pond-ring-three" /><div className="pierce-pond-core" /><div className="pierce-pond-grid" /></div>
-        <div className="pierce-ascii-field absolute inset-0 z-[3] overflow-hidden pointer-events-none" aria-hidden="true">
-          <pre className="pierce-ascii pierce-ascii-a absolute -left-12 top-[-8%] text-[8px] md:text-[10px] leading-[0.92] opacity-45">{'░▒▓█▓▒░   .:+*##*+:.   ░▒▓█▓▒░\n▒▓██▓▒░  /  P I E R C E  \\  ░▒▓██▓▒\n▓███▓▒  <  SIGNAL / 01  >  ▒▓███▓\n▒▓██▓▒░  \\  .:+*##*+:.  /  ░▒▓██▓▒\n░▒▓█▓▒░   :::::::::::::   ░▒▓█▓▒░\n'.repeat(12)}</pre>
-          <pre className="pierce-ascii pierce-ascii-b absolute right-[-5%] top-[8%] text-[9px] md:text-xs leading-[1.05] opacity-35 text-right">{'      .       *       .\n   .  /|\\  .   .  /|\\\n  --  / | \\  --  / | \\ --\n   .   / \\   .    / \\  .\n      /___\\      /___\\\n'.repeat(10)}</pre>
-          <pre className="pierce-ascii pierce-ascii-c absolute bottom-[-8%] left-[12%] text-[7px] md:text-[9px] leading-none opacity-30">{'01001000 01000101 01000001 01010010\n░░▒▒▓▓████▓▓▒▒░░░░▒▒▓▓████▓▓▒▒░░\n<  THE ROOM IS STILL MOVING  >\n'.repeat(13)}</pre>
-          <div className="absolute inset-0 pierce-ascii-scan opacity-20" />
-        </div>
-
-        <div className="pierce-ascii-orbit absolute z-[4] right-[12%] top-[22%] pointer-events-none select-none text-[#2864ff]" aria-hidden="true"><pre className="font-mono text-[8px] sm:text-[10px] leading-[0.9] drop-shadow-[0_0_12px_rgba(38,94,255,.9)]">{'   .-====-.\n  /  .::.  \\\n |  (::::)  |\n  \\  `::`  /\n   `-====-`'}</pre></div>
-
         {/* Top-Right: ESC Exit Button */}
-        <div className="relative z-30 p-6 flex justify-end items-center gap-3">
+        <div className="pierce-topbar relative z-30 p-6 flex justify-end items-center gap-3">
           <button
             type="button"
             onClick={() => onSelectMode('expanded')}
             aria-label="Sair da tela cheia"
-            className="flex items-center gap-2 px-3 py-1.5 bg-black/60 hover:bg-black/90 text-white rounded-full border border-white/20 backdrop-blur-md text-xs font-mono transition-all cursor-pointer shadow-md"
+            className="pierce-exit-button flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer"
           >
             <span>ESC</span>
             <Minimize2 className="w-3.5 h-3.5" />
           </button>
         </div>
 
-{lyricsText && (<div className="absolute z-20 left-1/2 -translate-x-1/2 top-[22%] md:top-[24%] w-[min(68vw,760px)] max-h-[52vh] overflow-y-auto px-3 pierce-lyrics-scroll"><div className="font-mono text-[9px] tracking-[0.28em] text-[#4778ff] mb-5 text-center">LYRIC FRAGMENT / TEXT</div><p className="font-['Plus_Jakarta_Sans',sans-serif] text-lg md:text-2xl lg:text-3xl font-semibold leading-[1.16] tracking-[-0.035em] text-white whitespace-pre-line [text-align:justify] [text-align-last:center] drop-shadow-[0_2px_18px_rgba(0,0,0,.8)]">{lyricsText}</p></div>)}
+{lyricsText && (<div className="pierce-lyrics-layout absolute z-20 left-[75%] -translate-x-1/2 top-[19%] md:top-[21%] w-[min(38vw,560px)] max-h-[58vh] overflow-y-auto px-1 pierce-lyrics-scroll"><p className="pierce-lyrics-copy font-['Plus_Jakarta_Sans',sans-serif] text-lg md:text-2xl lg:text-[clamp(1.5rem,2.5vw,2.7rem)] font-medium leading-[1.28] tracking-[-0.035em] whitespace-pre-line [text-align:justify] [text-align-last:left]">{lyricsText}</p></div>)}
         {/* Active Kinetic Lyric Floating in Negative Space */}
         {!lyricsText && activeLyric && (
-          <div className="relative z-20 px-8 md:px-14 my-auto max-w-3xl">
-            <div className="text-xs font-mono text-[#002aff] tracking-widest uppercase mb-1 font-semibold">
-              REC SYNC // {formatTime(activeLyric.startMs)}
+          <div className="pierce-lyrics-layout pierce-active-lyric relative z-20 ml-auto mr-[7.5vw] my-auto w-[min(38vw,560px)]">
+            <div className="pierce-lyric-timestamp text-[10px] tracking-[0.16em] uppercase mb-3">
+              {formatTime(activeLyric.startMs)}
             </div>
-            <h1 className="font-['Plus_Jakarta_Sans',sans-serif] text-3xl md:text-5xl font-medium tracking-tight text-white leading-tight drop-shadow-lg">
+            <h1 className="pierce-lyrics-copy font-['Plus_Jakarta_Sans',sans-serif] text-3xl md:text-5xl font-medium tracking-tight leading-[1.18] [text-align:justify]">
               {activeLyric.text}
             </h1>
           </div>
         )}
 
         {/* Bottom Bar: Title, Artist, Scrubber on Left / Controls on Right (Exact Match to Mockup) */}
-        <div className="relative z-30 p-8 md:px-14 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10">
+        <div className="pierce-player-bar relative z-30 p-8 md:px-14 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10">
           {/* Left: Song details + Scrub bar */}
           <div className="max-w-md w-full">
-            <h2 className="font-['Plus_Jakarta_Sans',sans-serif] text-2xl font-normal text-white tracking-tight">
+            <h2 className="pierce-track-title font-['Plus_Jakarta_Sans',sans-serif] text-2xl font-normal tracking-tight">
               {track.title}
             </h2>
-            <p className="font-['Plus_Jakarta_Sans',sans-serif] text-sm text-white/60 mt-0.5">
+            <p className="pierce-track-artist font-['Plus_Jakarta_Sans',sans-serif] text-sm mt-0.5">
               {track.artist}
             </p>
 
@@ -229,15 +217,15 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
                   const ratio = Math.max(0, Math.min(1, clickX / rect.width));
                   onSeek(ratio * track.durationMs);
                 }}
-                className="relative h-1 w-full bg-white/20 rounded-full cursor-pointer group"
+                className="pierce-scrubber relative h-1 w-full rounded-full cursor-pointer group"
               >
                 <div
-                  className="absolute left-0 top-0 bottom-0 bg-white rounded-full transition-all duration-75"
+                  className="pierce-scrubber-progress absolute left-0 top-0 bottom-0 rounded-full transition-all duration-75"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
 
-              <div className="text-[11px] font-mono text-white/50 tabular-nums">
+              <div className="pierce-timecode text-[11px] font-mono tabular-nums">
                 {formatTime(progressMs)} / {formatTime(track.durationMs)}
               </div>
             </div>
@@ -249,7 +237,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               type="button"
               onClick={() => { triggerRipple(); onToggleShuffle(); }}
               aria-label="Modo aleatório"
-              className={`p-1 transition-colors cursor-pointer ${shuffleEnabled ? 'text-[#4778ff]' : 'text-white/40 hover:text-white'}`}
+              className={`p-1 transition-colors cursor-pointer ${shuffleEnabled ? 'pierce-control-active' : 'pierce-control-idle'}`}
             >
               <Shuffle className="w-4 h-4" />
             </button>
@@ -258,7 +246,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               type="button"
               onClick={() => { triggerRipple(); onPrevious(); }}
               aria-label="Faixa anterior"
-              className="p-1 text-white hover:text-white/80 transition-colors cursor-pointer"
+              className="pierce-control-button p-1 transition-colors cursor-pointer"
             >
               <SkipBack className="w-4 h-4 fill-white" />
             </button>
@@ -267,9 +255,9 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               type="button"
               onClick={() => { triggerRipple(); onTogglePlay(); }}
               aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-              className="w-11 h-11 rounded-full bg-white text-black hover:bg-white/90 transition-transform active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
+              className="pierce-play-button w-11 h-11 rounded-full transition-transform active:scale-95 flex items-center justify-center cursor-pointer"
             >
-              {isPlaying ? <Pause className="w-5 h-5 fill-black" /> : <Play className="w-5 h-5 fill-black ml-0.5" />}
+              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
             </button>
 
             <button
@@ -286,7 +274,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               onClick={() => { triggerRipple(); setIsRepeat(!isRepeat); }}
               aria-label="Repetir faixa"
               className={`p-1 transition-colors cursor-pointer ${
-                isRepeat ? 'text-white' : 'text-white/40 hover:text-white'
+                isRepeat ? 'pierce-control-active' : 'pierce-control-idle'
               }`}
             >
               <Repeat className="w-4 h-4" />
