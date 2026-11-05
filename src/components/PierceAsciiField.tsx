@@ -161,7 +161,7 @@ export const PierceAsciiField: React.FC = () => {
         const perspective = 1.45 / (1.45 - depth / Math.max(scale, 1));
         const screenX = centerX + rotatedX * perspective;
         const screenY = centerY + point.y * scale * 1.55 * perspective;
-        if (screenX < 62 || screenX > width - 12 || screenY < 12 || screenY > height - 12) continue;
+        if (screenX < 8 || screenX > width - 8 || screenY < 8 || screenY > height - 8) continue;
 
         const frontLight = Math.max(0, point.z > 0 ? cosine : -cosine);
         const brightness = point.edge ? 0.5 + Math.abs(sine) * 0.32 : 0.38 + frontLight * 0.62;
