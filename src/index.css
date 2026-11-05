@@ -183,13 +183,13 @@
 
 
 /* Editorial fullscreen redesign */
-.pierce-editorial-shell { background: #f5f4f0; color: #252522; }
+.pierce-editorial-shell { background: #ebe9e2; color: #252522; }
 .pierce-editorial-rail { background: #292925; border-right: 1px solid rgba(255,255,255,.08); color: #f7f6f2; }
 .pierce-wordmark { color: #fff; letter-spacing: -.075em; }
 .pierce-rail-button { color: rgba(255,255,255,.48); }
 .pierce-rail-button:hover, .pierce-rail-button-active { color: #fff; }
 .pierce-version { color: rgba(255,255,255,.28); }
-.pierce-fullscreen-surface, .pierce-editorial-canvas { background: #f5f4f0; color: #252522; isolation: isolate; }
+.pierce-fullscreen-surface, .pierce-editorial-canvas { background: #ebe9e2; color: #252522; isolation: isolate; }
 .pierce-ascii-interaction canvas { opacity: .13; }
 .pierce-ascii-mode { display: none; }
 .pierce-exit-button { color: #383832; background: rgba(255,255,255,.62); border: 1px solid rgba(45,45,39,.16); box-shadow: none; backdrop-filter: blur(8px); font-family: "Plus Jakarta Sans", sans-serif; }
@@ -250,10 +250,10 @@
 
 
 /* Permanent ambient ASCII composition: transparent, editorial and always present. */
-.pierce-ambient-composition { opacity: .92; mix-blend-mode: multiply; overflow: hidden; }
+.pierce-ambient-composition { opacity: .98; mix-blend-mode: multiply; overflow: hidden; }
 .pierce-ambient-composition canvas { display: block; width: 100%; height: 100%; }
 @media (max-width: 760px) {
-  .pierce-ambient-composition { opacity: .72; }
+  .pierce-ambient-composition { opacity: .86; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pierce-ambient-composition { transition: none; }
