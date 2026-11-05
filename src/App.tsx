@@ -289,6 +289,12 @@ export default function App() {
         </header>
       )}
 
+      {isImmersive && (
+        <div className="fixed right-5 top-5 z-50">
+          <SpotifyConnectionPanel />
+        </div>
+      )}
+
       {/* CENTRAL VIEWPORT */}
       <div className="flex-1 flex items-center justify-center relative z-20 py-4 px-4 sm:px-8">
         {/* 1. BOARD OVERVIEW: all five official PIERCE modes */}
