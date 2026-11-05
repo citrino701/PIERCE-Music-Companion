@@ -25,7 +25,6 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [lyricsText, setLyricsText] = useState<string | null>(null);
-  const [lyricsOpen, setLyricsOpen] = useState(false);
   const [spotifyControlError, setSpotifyControlError] = useState('');
   const spotifyErrorTimeoutRef = useRef<number | null>(null);
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
@@ -357,13 +356,6 @@ export default function App() {
       )}
 
       {spotifyControlError && <div className="fixed top-16 right-5 z-[70] max-w-sm rounded-lg bg-black text-white px-4 py-3 text-xs shadow-xl">{spotifyControlError}</div>}
-
-      {lyricsText && (
-        <div className="fixed bottom-5 right-5 z-[60]">
-          <button type="button" onClick={() => setLyricsOpen((open) => !open)} className="rounded-full border border-white/20 bg-black/80 px-4 py-2 text-[10px] font-mono tracking-widest text-white shadow-lg backdrop-blur">LYRICS {lyricsOpen ? '−' : '+'}</button>
-          {lyricsOpen && <div className="absolute bottom-12 right-0 w-72 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-xl border border-white/15 bg-black/90 p-4 text-sm leading-6 text-white shadow-2xl">{lyricsText}</div>}
-        </div>
-      )}
 
       {isImmersive && (
         <div className="fixed right-5 top-5 z-50">
