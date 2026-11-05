@@ -220,3 +220,30 @@
   .pierce-artifact-video { max-width: 42vw; }
 }
 @media (prefers-reduced-motion: reduce) { .pierce-artifact-video { transition: none !important; } }
+
+
+/* PIERCE: small, transparent ASCII interventions. No video layer or opaque frame. */
+.pierce-ascii-artifact {
+  width: max-content;
+  max-width: 32vw;
+  opacity: 0;
+  transition: opacity 480ms ease, transform 720ms cubic-bezier(.2,.8,.2,1);
+  will-change: opacity, transform;
+  mix-blend-mode: multiply;
+}
+.pierce-ascii-artifact.is-visible { opacity: .78; }
+.pierce-ascii-artifact pre {
+  margin: 0;
+  white-space: pre;
+  font: 600 clamp(9px, .9vw, 13px)/1.28 "Space Mono", monospace;
+  letter-spacing: .045em;
+}
+.pierce-ascii-artifact.tone-blue { color: #315fe8; text-shadow: 0 0 14px rgba(49,95,232,.16); }
+.pierce-ascii-artifact.tone-yellow { color: #b58a25; text-shadow: 0 0 12px rgba(181,138,37,.14); }
+@media (max-width: 760px) {
+  .pierce-ascii-artifact { max-width: 48vw; }
+  .pierce-ascii-artifact pre { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pierce-ascii-artifact { transition: none; }
+}
