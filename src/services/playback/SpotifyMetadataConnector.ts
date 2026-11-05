@@ -5,7 +5,7 @@
  */
 const CLIENT_ID = '22cbfb1b63b146b79892330d3838609f';
 const REDIRECT_URI = 'https://pierce-music-companion.hugoviajante.workers.dev/';
-const SCOPES = ['user-read-playback-state', 'user-read-currently-playing'];
+const SCOPES = ['user-read-playback-state', 'user-read-currently-playing', 'user-modify-playback-state'];
 const TOKEN_KEY = 'pierce.spotify.token';
 const VERIFIER_KEY = 'pierce.spotify.pkce.verifier';
 const STATE_KEY = 'pierce.spotify.oauth.state';
@@ -115,6 +115,45 @@ export async function getSpotifyNowPlaying(): Promise<SpotifyNowPlaying | null> 
   if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
   if (!response.ok) throw new Error(`Spotify API respondeu com erro ${response.status}.`);
   return await response.json() as SpotifyNowPlaying;
+}
+
+export async function pauseSpotifyPlayback(): Promise<void> {
+  return spotifyPlaybackCommand('pause');
+}
+
+export async function resumeSpotifyPlayback(): Promise<void> {
+  return spotifyPlaybackCommand('play');
+}
+
+async function spotifyPlaybackCommand(action: 'pause' | 'play'): Promise<void> {
+  const token = getSpotifyToken();
+  if (!token) throw new Error('Conecte novamente sua conta Spotify para liberar os controles.');
+  const response = await fetch('https://api.spotify.com/v1/me/player/' + action, {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + token.access_token },
+  });
+  if (response.status === 204) return;
+  if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
+  if (response.status === 403) throw new Error('O Spotify exige uma conta Premium e um dispositivo ativo para controlar a reprodução.');
+  if (response.status === 404) throw new Error('Nenhum dispositivo Spotify ativo foi encontrado. Abra o Spotify e inicie uma faixa.');
+  throw new Error('Não foi possível controlar o Spotify (erro ' + response.status + ').');
+}
+
+export interface LyricsRecord { plainLyrics: string | null; instrumental: boolean; }
+
+export async function fetchTrackLyrics(track: { title: string; artist: string; album: string; durationMs: number }): Promise<LyricsRecord | null> {
+  const params = new URLSearchParams({
+    track_name: track.title,
+    artist_name: track.artist.split(',')[0].trim(),
+    album_name: track.album,
+    duration: String(Math.round(track.durationMs / 1000)),
+  });
+  const response = await fetch('https://lrclib.net/api/get?' + params.toString(), {
+    headers: { 'Lrclib-Client': 'PIERCE-Music-Companion/0.1.0' },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error('Não foi possível buscar a letra (LRCLIB ' + response.status + ').');
+  return await response.json() as LyricsRecord;
 }
 
 export function disconnectSpotify(): void {
