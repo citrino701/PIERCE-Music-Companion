@@ -14,6 +14,7 @@ import { ExpandedMode } from './components/ExpandedMode';
 import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
+import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
   const [isBoardView, setIsBoardView] = useState<boolean>(false);
   const [currentTrack, setCurrentTrack] = useState<TrackData>(TRACK_CATALOG[0]);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
   const [volume, setVolume] = useState<number>(0.8);
   const [visualSettings, setVisualSettings] = useState<VisualSettings>({
@@ -32,6 +34,30 @@ export default function App() {
     intensity: 0.85,
   });
 
+  const handleSpotifySnapshot = useCallback((snapshot: SpotifyNowPlaying | null) => {
+    setSpotifyConnected(true);
+    if (!snapshot?.item) {
+      setIsPlaying(false);
+      setProgressMs(0);
+      return;
+    }
+    const item = snapshot.item;
+    const visualBase = TRACK_CATALOG[0];
+    setCurrentTrack({
+      ...visualBase,
+      id: `spotify-${item.id}`,
+      title: item.name,
+      artist: item.artists.map((artist) => artist.name).join(', '),
+      album: item.album.name,
+      durationMs: item.duration_ms,
+      coverImage: item.album.images?.[0]?.url ?? visualBase.coverImage,
+      lyrics: [],
+      chapters: [],
+    });
+    setProgressMs(snapshot.progress_ms ?? 0);
+    setIsPlaying(snapshot.is_playing);
+  }, []);
+
   // The demo uses the same provider contract reserved for future integrations.
   const playbackProviderRef = useRef<DemoPlaybackProvider | null>(null);
   if (!playbackProviderRef.current) {
@@ -40,6 +66,10 @@ export default function App() {
 
   useEffect(() => {
     const provider = playbackProviderRef.current!;
+    if (spotifyConnected) {
+      void provider.disconnect();
+      return;
+    }
     const unsubscribe = provider.subscribe((snapshot) => {
       if (snapshot.track) setCurrentTrack(snapshot.track);
       setProgressMs(snapshot.progressMs);
@@ -51,7 +81,15 @@ export default function App() {
       unsubscribe();
       void provider.disconnect();
     };
-  }, []);
+  }, [spotifyConnected]);
+
+  useEffect(() => {
+    if (!spotifyConnected || !isPlaying) return;
+    const timer = window.setInterval(() => {
+      setProgressMs((position) => Math.min(currentTrack.durationMs, position + 250));
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [spotifyConnected, isPlaying, currentTrack.durationMs]);
 
   // Derived state
   const activeLyricIndex = findActiveLyricIndex(currentTrack.lyrics, progressMs);
@@ -282,7 +320,7 @@ export default function App() {
 
           {/* Top-Right: Spotify metadata connection + product signature */}
           <div className="flex items-center gap-3 text-[11px] font-mono tracking-widest uppercase text-black/70">
-            <SpotifyConnectionPanel />
+            <SpotifyConnectionPanel onSnapshot={handleSpotifySnapshot} onDisconnect={() => setSpotifyConnected(false)} />
             <span className="hidden sm:inline">MUSIC / VISUAL / YOU</span>
             <span className="text-sm font-light text-black/80">+</span>
           </div>
