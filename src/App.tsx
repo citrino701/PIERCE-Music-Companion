@@ -67,7 +67,7 @@ export default function App() {
     let cancelled = false;
     setLyricsText(null);
     void fetchTrackLyrics(currentTrack).then((record) => {
-      if (!cancelled) setLyricsText(record?.plainLyrics ?? (record?.instrumental ? 'Faixa instrumental.' : null));
+      if (!cancelled) setLyricsText(record?.plainLyrics ?? record?.syncedLyrics?.replace(/\[\d{2}:\d{2}\.\d{2}\]\s*/g, '') ?? (record?.instrumental ? 'Faixa instrumental.' : null));
     }).catch(() => { if (!cancelled) setLyricsText(null); });
     return () => { cancelled = true; };
   }, [spotifyConnected, currentTrack.id]);
