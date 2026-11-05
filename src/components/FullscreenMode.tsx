@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PierceAsciiField } from './PierceAsciiField';
+import { PierceAsciiArtifact } from './PierceAsciiArtifact';
 import {
   TrackData,
   LyricLine,
@@ -164,6 +165,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 
       {/* Main Full-Bleed Audiovisual Composition */}
       <div ref={surfaceRef} className="pierce-fullscreen-surface flex-1 relative h-full overflow-hidden flex flex-col justify-between">
+        <PierceAsciiArtifact isPlaying={isPlaying} />
         <div className="pierce-signal-pond absolute inset-0" aria-hidden="true"><div className="pierce-pond-ring pierce-pond-ring-one" /><div className="pierce-pond-ring pierce-pond-ring-two" /><div className="pierce-pond-ring pierce-pond-ring-three" /><div className="pierce-pond-core" /><div className="pierce-pond-grid" /></div>
         <div className="pierce-ascii-field absolute inset-0 z-[3] overflow-hidden pointer-events-none" aria-hidden="true">
           <pre className="pierce-ascii pierce-ascii-a absolute -left-12 top-[-8%] text-[8px] md:text-[10px] leading-[0.92] opacity-45">{'░▒▓█▓▒░   .:+*##*+:.   ░▒▓█▓▒░\n▒▓██▓▒░  /  P I E R C E  \\  ░▒▓██▓▒\n▓███▓▒  <  SIGNAL / 01  >  ▒▓███▓\n▒▓██▓▒░  \\  .:+*##*+:.  /  ░▒▓██▓▒\n░▒▓█▓▒░   :::::::::::::   ░▒▓█▓▒░\n'.repeat(12)}</pre>
