@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PierceAsciiField } from './PierceAsciiField';
 import { PierceAsciiFrame } from './PierceAsciiFrame';
+import { PierceAsciiStar } from './PierceAsciiStar';
 import { PierceWaveProgress } from './PierceWaveProgress';
 import { TrackStickers } from './TrackStickers';
 import { PixelPlayButton } from './PixelPlayButton';
@@ -68,6 +69,8 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 }) => {
   const [isRepeat, setIsRepeat] = useState(false);
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const lyricsScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { const container=lyricsScrollRef.current; const active=container?.querySelector<HTMLElement>('[data-lyric-active="true"]'); if(!container||!active)return; container.scrollTo({top:Math.max(0,active.offsetTop-container.clientHeight/3),behavior:'smooth'}); },[activeLyric?.id]);
   const triggerRipple = () => {
     const surface = surfaceRef.current;
     if (!surface) return;
@@ -103,6 +106,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       <div ref={surfaceRef} className="pierce-fullscreen-surface pierce-editorial-canvas flex-1 relative h-full overflow-hidden flex flex-col justify-between">
         <span className="pierce-corner-star" aria-hidden="true">✦</span>
         <PierceAsciiFrame />
+        <PierceAsciiStar />
         <PierceAsciiField />
         {/* Top-Right: ESC Exit Button */}
         <div className="pierce-topbar relative z-30 p-6 flex justify-end items-center gap-3">
@@ -117,7 +121,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
           </button>
         </div>
 
-{lyricsText && (<div className="pierce-lyrics-layout absolute z-20 left-[75%] -translate-x-1/2 top-[19%] md:top-[21%] w-[min(38vw,560px)] max-h-[58vh] overflow-y-auto px-1 pierce-lyrics-scroll"><p className="pierce-lyrics-copy font-['Plus_Jakarta_Sans',sans-serif] text-lg md:text-2xl lg:text-[clamp(1.5rem,2.5vw,2.7rem)] font-medium leading-[1.28] tracking-[-0.035em] whitespace-pre-line [text-align:justify] [text-align-last:left]">{lyricsText}</p></div>)}
+{lyricsText && (<div ref={lyricsScrollRef} className="pierce-lyrics-layout absolute z-20 left-[75%] -translate-x-1/2 top-[19%] md:top-[21%] w-[min(38vw,560px)] max-h-[58vh] overflow-y-auto px-1 pierce-lyrics-scroll"><p className="pierce-lyrics-copy font-['Plus_Jakarta_Sans',sans-serif] text-lg md:text-2xl lg:text-[clamp(1.5rem,2.5vw,2.7rem)] font-medium leading-[1.28] tracking-[-0.035em] whitespace-pre-line [text-align:justify] [text-align-last:left]">{track.lyrics.length > 0 ? track.lyrics.map((line) => (<span key={line.id} data-lyric-active={line.id === activeLyric?.id} className="block opacity-35 transition-opacity duration-500 data-[lyric-active=true]:opacity-100">{line.text}</span>)) : lyricsText}</p></div>)}
         {/* Active Kinetic Lyric Floating in Negative Space */}
         {!lyricsText && activeLyric && (
           <div className="pierce-lyrics-layout pierce-active-lyric relative z-20 ml-auto mr-[7.5vw] my-auto w-[min(38vw,560px)]">
