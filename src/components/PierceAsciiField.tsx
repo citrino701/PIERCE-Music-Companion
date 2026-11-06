@@ -43,7 +43,11 @@ export const PierceAsciiField: React.FC = () => {
       canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); buildGeometry();
     };
     const down = (e: PointerEvent) => {
-      const bounds = canvas.getBoundingClientRect();\n      const localX = e.clientX - bounds.left, localY = e.clientY - bounds.top;\n      const scale = Math.min(width * 0.68, 780);\n      if (Math.abs(localX - width * 0.48) > scale * 0.54 || Math.abs(localY - height * 0.58) > scale * 0.20) return;\n      drag.active = true; drag.pointerId = e.pointerId; drag.lastX = e.clientX; drag.lastY = e.clientY;
+      const bounds = canvas.getBoundingClientRect();
+      const localX = e.clientX - bounds.left, localY = e.clientY - bounds.top;
+      const scale = Math.min(width * 0.68, 780);
+      if (Math.abs(localX - width * 0.48) > scale * 0.54 || Math.abs(localY - height * 0.58) > scale * 0.20) return;
+      drag.active = true; drag.pointerId = e.pointerId; drag.lastX = e.clientX; drag.lastY = e.clientY;
       canvas.setPointerCapture(e.pointerId); canvas.classList.add('is-grabbing');
     };
     const move = (e: PointerEvent) => {
