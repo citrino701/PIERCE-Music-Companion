@@ -41,6 +41,8 @@ export interface TrackData {
   bpm: number;
   key: string;
   mood: string;
+  /** Genre labels returned by Spotify artist metadata when available. */
+  genres?: string[];
   accentColor: string;
   secondaryColor: string;
   coverImage: string;
