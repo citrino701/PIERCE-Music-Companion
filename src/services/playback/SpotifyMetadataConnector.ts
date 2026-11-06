@@ -3,6 +3,8 @@
  * Uses Authorization Code + PKCE. No client secret is stored or required.
  * Spotify audio is never captured, analyzed, or synchronized to visuals here.
  */
+import { pickBestLyricsRecord } from '../lyrics/lrc';
+
 const CLIENT_ID = '22cbfb1b63b146b79892330d3838609f';
 const REDIRECT_URI = 'https://pierce-music-companion.hugoviajante.workers.dev/';
 const SCOPES = ['user-read-playback-state', 'user-read-currently-playing', 'user-modify-playback-state'];
@@ -169,57 +171,25 @@ async function spotifyPlayerRequest(path: string, method: 'PUT' | 'POST'): Promi
 }
 
 
-export interface SpotifyArtistGenreRecord {
-  id: string;
-  name: string;
-  genres: string[];
+const artistGenreCache=new Map<string,string[]>();
+const trackGenreCache=new Map<string,string[]>();
+const trackGenrePending=new Map<string,Promise<string[]>>();
+let lastMbRequest=0;
+async function mbFetch(url:string):Promise<Response>{const wait=Math.max(0,1100-(Date.now()-lastMbRequest));if(wait)await new Promise(resolve=>window.setTimeout(resolve,wait));lastMbRequest=Date.now();return fetch(url,{headers:{Accept:'application/json'}});}
+async function spotifyArtistGenres(ids:string[]):Promise<string[]>{const token=getSpotifyToken();if(!token)return[];const missing=[...new Set(ids.filter(Boolean))].filter(id=>!artistGenreCache.has(id));for(let i=0;i<missing.length;i+=5){const results=await Promise.all(missing.slice(i,i+5).map(async id=>{try{const res=await fetch('https://api.spotify.com/v1/artists/'+encodeURIComponent(id),{headers:{Authorization:'Bearer '+token.access_token}});if(!res.ok)return{id,genres:[] as string[]};const data=await res.json() as {genres?:string[]};return{id,genres:Array.isArray(data.genres)?data.genres.filter(Boolean):[]};}catch{return{id,genres:[] as string[]};}}));results.forEach(x=>artistGenreCache.set(x.id,x.genres));}return[...new Set(ids.flatMap(id=>artistGenreCache.get(id)??[]))];}
+async function musicBrainzRecordingTags(title:string,artist:string):Promise<string[]>{const query=`recording:"${title}" AND artist:"${artist.split(',')[0].trim()}"`;const search=await mbFetch('https://musicbrainz.org/ws/2/recording/?'+new URLSearchParams({query,fmt:'json',limit:'5'}));if(!search.ok)return[];const data=await search.json() as {recordings?:Array<{id:string;score?:number}>};const rec=data.recordings?.sort((a,b)=>(b.score??0)-(a.score??0))[0];if(!rec?.id)return[];const response=await mbFetch('https://musicbrainz.org/ws/2/recording/'+encodeURIComponent(rec.id)+'?'+new URLSearchParams({inc:'tags',fmt:'json'}));if(!response.ok)return[];const body=await response.json() as {tags?:Array<{name:string;count?:number}>};const ignored=new Set(['seen live','favorites','favorite','spotify','all','music','my music']);return(body.tags??[]).filter(t=>!ignored.has(t.name.toLowerCase())).sort((a,b)=>(b.count??0)-(a.count??0)).slice(0,4).map(t=>t.name);}
+export async function getTrackGenres(input:{artistIds:string[];title:string;artist:string}):Promise<string[]>{const key=input.title.toLowerCase()+'::'+input.artist.toLowerCase();if(trackGenreCache.has(key))return trackGenreCache.get(key)!;const pending=trackGenrePending.get(key);if(pending)return pending;const job=(async()=>{const spotify=await spotifyArtistGenres(input.artistIds);const genres=spotify.length?spotify:await musicBrainzRecordingTags(input.title,input.artist).catch(()=>[]);trackGenreCache.set(key,genres);return genres;})();trackGenrePending.set(key,job);try{return await job;}finally{trackGenrePending.delete(key);}}
+export interface LyricsRecord {plainLyrics:string|null;syncedLyrics:string|null;instrumental:boolean;duration?:number|null;}
+export async function fetchTrackLyrics(track:{title:string;artist:string;album:string;durationMs:number}):Promise<LyricsRecord|null>{
+ const headers={'Lrclib-Client':'PIERCE-Music-Companion/0.1.0'},artist=track.artist.split(',')[0].trim();
+ const exact=await fetch('https://lrclib.net/api/get?'+new URLSearchParams({track_name:track.title,artist_name:artist,album_name:track.album,duration:String(Math.round(track.durationMs/1000))}),{headers});
+ let exactRecord:LyricsRecord|null=null;
+ if(exact.ok){exactRecord=await exact.json() as LyricsRecord;if(exactRecord.syncedLyrics||exactRecord.instrumental)return exactRecord;}else if(exact.status!==404)throw new Error('Não foi possível buscar a letra (LRCLIB '+exact.status+').');
+ const search=await fetch('https://lrclib.net/api/search?'+new URLSearchParams({track_name:track.title,artist_name:artist}),{headers}).catch(()=>null);
+ const candidates=search?.ok?await search.json() as LyricsRecord[]:[];
+ const best=pickBestLyricsRecord(candidates,track.durationMs);
+ return best?.syncedLyrics?best:(exactRecord??best);
 }
-
-// Spotify currently marks Artist.genres as deprecated, but the endpoint still documents
-// the field. Cache successful lookups in memory to avoid repeating requests on each poll.
-const artistGenreCache = new Map<string, string[]>();
-
-export async function getSpotifyArtistGenres(artistIds: string[]): Promise<string[]> {
-  const uniqueIds = [...new Set(artistIds.filter(Boolean))];
-  const missing = uniqueIds.filter((id) => !artistGenreCache.has(id));
-  const token = getSpotifyToken();
-  if (!token || missing.length === 0) {
-    return [...new Set(uniqueIds.flatMap((id) => artistGenreCache.get(id) ?? []))];
-  }
-
-  // Keep requests small and sequentially batched to avoid a burst of artist lookups.
-  for (let start = 0; start < missing.length; start += 5) {
-    const batch = missing.slice(start, start + 5);
-    const results = await Promise.all(batch.map(async (id) => {
-      const response = await fetch('https://api.spotify.com/v1/artists/' + encodeURIComponent(id), {
-        headers: { Authorization: 'Bearer ' + token.access_token },
-      });
-      if (!response.ok) return { id, genres: [] as string[] };
-      const artist = await response.json() as { genres?: string[] };
-      return { id, genres: Array.isArray(artist.genres) ? artist.genres.filter(Boolean) : [] };
-    }));
-    results.forEach(({ id, genres }) => artistGenreCache.set(id, genres));
-  }
-  return [...new Set(uniqueIds.flatMap((id) => artistGenreCache.get(id) ?? []))];
-}
-
-export interface LyricsRecord { plainLyrics: string | null; syncedLyrics: string | null; instrumental: boolean; }
-
-export async function fetchTrackLyrics(track: { title: string; artist: string; album: string; durationMs: number }): Promise<LyricsRecord | null> {
-  const params = new URLSearchParams({
-    track_name: track.title,
-    artist_name: track.artist.split(',')[0].trim(),
-    album_name: track.album,
-    duration: String(Math.round(track.durationMs / 1000)),
-  });
-  const response = await fetch('https://lrclib.net/api/get?' + params.toString(), {
-    headers: { 'Lrclib-Client': 'PIERCE-Music-Companion/0.1.0' },
-  });
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error('Não foi possível buscar a letra (LRCLIB ' + response.status + ').');
-  return await response.json() as LyricsRecord;
-}
-
 export function disconnectSpotify(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(VERIFIER_KEY);
