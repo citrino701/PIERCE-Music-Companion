@@ -166,7 +166,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               <SkipBack className="w-4 h-4 fill-white" />
             </button>
 
-            <PixelPlayButton isPlaying={isPlaying} progress={progressPercent / 100} onClick={() => { triggerRipple(); onTogglePlay(); }} />
+            <PixelPlayButton isPlaying={isPlaying} progress={progressPercent / 100} onClick={onTogglePlay} />
 
             <button
               type="button"
