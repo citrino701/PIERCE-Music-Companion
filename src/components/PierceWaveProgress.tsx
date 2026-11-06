@@ -1,0 +1,69 @@
+import React, { useEffect, useRef } from 'react';
+import { formatTime } from '../services/playbackEngine';
+
+interface Props { progressMs: number; durationMs: number; isPlaying: boolean; onSeek: (positionMs: number) => void; }
+const STEP = 6;
+const peakAt = (i: number) => 0.2 + 0.8 * Math.abs(Math.sin(i * 0.19) * Math.sin(i * 0.053 + 1) * 0.7 + (Math.sin(i * 12.9898) % 1) * 0.3);
+
+export const PierceWaveProgress: React.FC<Props> = ({ progressMs, durationMs, isPlaying, onSeek }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const waveRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wave = waveRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !wave || !ctx) return;
+    let width = 0, height = 44, dpr = 1, frame = 0, disposed = false;
+    const resize = () => {
+      width = Math.max(1, wave.getBoundingClientRect().width);
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    const draw = (time: number) => {
+      if (disposed) return;
+      const styles = getComputedStyle(document.documentElement);
+      const ink = styles.getPropertyValue('--ink').trim() || '#242720';
+      const faint = styles.getPropertyValue('--faint').trim() || '#bdb8ab';
+      const accent = styles.getPropertyValue('--accent').trim() || '#d8c27d';
+      const p = Math.max(0, Math.min(1, progressMs / Math.max(1, durationMs)));
+      const beat = isPlaying ? 0.5 + 0.5 * Math.sin(time / 380) : 0;
+      const count = Math.floor(width / STEP);
+      ctx.clearRect(0, 0, width, height);
+      for (let i = 0; i < count; i++) {
+        const near = Math.abs(i / Math.max(1, count) - p) < 0.04 ? beat : 0;
+        const magnitude = Math.round(peakAt(i) * (3 + 2 * near) * 1.8);
+        ctx.fillStyle = i / Math.max(1, count) < p ? ink : faint;
+        for (let k = -magnitude; k <= magnitude; k++) {
+          ctx.beginPath(); ctx.arc(i * STEP + STEP / 2, height / 2 + k * 3.2, 1.35, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      const x = p * width;
+      ctx.fillStyle = accent; ctx.fillRect(x - 0.5, 4, 1, height - 8);
+      ctx.globalAlpha = 0.8 + beat * 0.2; ctx.font = '12px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.fillText('✦', x, 9); ctx.globalAlpha = 1;
+      if (isPlaying) frame = requestAnimationFrame(draw);
+    };
+    resize(); draw(performance.now());
+    const observer = new ResizeObserver(() => { resize(); draw(performance.now()); });
+    observer.observe(wave);
+    if (isPlaying) frame = requestAnimationFrame(draw);
+    return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [progressMs, durationMs, isPlaying]);
+
+  const seek = (x: number) => {
+    const rect = waveRef.current?.getBoundingClientRect();
+    if (rect && rect.width > 0) onSeek(Math.max(0, Math.min(1, (x - rect.left) / rect.width)) * durationMs);
+  };
+  return <div className="pierce-wave-wrap">
+    <div ref={waveRef} className="pierce-wave" role="slider" tabIndex={0} aria-label="Progresso da faixa"
+      aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressMs / Math.max(1, durationMs) * 100)}
+      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); seek(e.clientX); }}
+      onPointerMove={e => { if (e.buttons === 1) seek(e.clientX); }}
+      onKeyDown={e => { if (e.key === 'ArrowRight') { e.preventDefault(); onSeek(Math.min(durationMs, progressMs + 5000)); } if (e.key === 'ArrowLeft') { e.preventDefault(); onSeek(Math.max(0, progressMs - 5000)); } }}>
+      <canvas ref={canvasRef} />
+    </div>
+    <div className="pierce-wave-times"><span>{formatTime(progressMs)}</span><span>−{formatTime(Math.max(0, durationMs - progressMs))}</span></div>
+  </div>;
+};
