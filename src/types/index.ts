@@ -69,3 +69,17 @@ export interface VisualSettings {
   filmBurns: boolean;
   intensity: number; // 0..1
 }
+
+/** Per-track colour set used by the "Bagunça 3" UI (exposed as --track-* CSS variables). */
+export interface TrackPalette {
+  /** Light neutral page background tinted with the cover hue. */
+  bg: string;
+  /** Main saturated colour (title block, played dots, play button). */
+  a: string;
+  /** Secondary colour, at least 60° away in hue from `a`. */
+  b: string;
+  /** `a` darkened until it reads on `bg` (contrast >= 4.5). */
+  deep: string;
+  /** Text colour that reads on `a` (white or ink). */
+  onA: string;
+}
