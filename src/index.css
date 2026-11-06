@@ -394,3 +394,6 @@
   .pierce-player-bar > div:last-child button { transform: scale(.88); }
   .pierce-corner-star { top: 1.25rem; left: 1.25rem; }
 }
+
+
+.pierce-ascii-star{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%;pointer-events:none;opacity:.52;mix-blend-mode:multiply}
