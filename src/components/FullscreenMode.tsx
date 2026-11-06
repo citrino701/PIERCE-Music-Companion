@@ -164,7 +164,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               aria-label="Faixa anterior"
               className="pierce-control-button p-1 transition-colors cursor-pointer"
             >
-              <SkipBack className="w-4 h-4 fill-white" />
+              <SkipBack className="w-4 h-4 fill-current" />
             </button>
 
             <PixelPlayButton isPlaying={isPlaying} progress={progressPercent / 100} onClick={onTogglePlay} />
@@ -173,9 +173,9 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               type="button"
               onClick={() => { triggerRipple(); onNext(); }}
               aria-label="Próxima faixa"
-              className="p-1 text-white hover:text-white/80 transition-colors cursor-pointer"
+              className="pierce-control-button p-1 transition-colors cursor-pointer"
             >
-              <SkipForward className="w-4 h-4 fill-white" />
+              <SkipForward className="w-4 h-4 fill-current" />
             </button>
 
             <button
