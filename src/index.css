@@ -301,3 +301,9 @@
 .pierce-surface-ripple { width:24px; height:24px; border:0; border-radius:50%; background-color:rgba(231,211,143,.58); background-image:radial-gradient(circle,#d8c27d 1px,transparent 1.2px); background-size:4px 4px; box-shadow:0 0 0 1px rgba(216,194,125,.22); animation:pierce-pixel-pulse 850ms steps(5,end) forwards; }
 @keyframes pierce-pixel-pulse { 0% { opacity:.92; transform:translate(-50%,-50%) scale(.72); } 45% { opacity:.72; transform:translate(-50%,-50%) scale(1.05); } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.3); } }
 @media (prefers-reduced-motion:reduce) { .pierce-pixel-ring { animation:none; } .pierce-surface-ripple { animation-duration:.01ms; } }
+
+.pierce-editorial-shell { background:var(--paper); color:var(--ink); }
+.pierce-editorial-rail { background:var(--side); }
+.pierce-fullscreen-surface, .pierce-editorial-canvas { background:var(--paper); color:var(--ink); }
+.pierce-pixel-play.is-playing .pierce-pixel-ring { animation-play-state:running; }
+.pierce-pixel-play.is-paused .pierce-pixel-ring { animation-play-state:paused; }
