@@ -1,24 +1,38 @@
 import React from 'react';
 import { TrackData } from '../types';
 
-function tagsFor(track: TrackData): string[] {
-  const mood = track.mood.toLowerCase();
-  const tags: string[] = [];
-  if (mood.includes('psychedelic')) tags.push('psicodelia pop');
-  if (mood.includes('indie disco')) tags.push('indie dance');
-  if (mood.includes('nostalgia')) tags.push('nostalgia líquida');
-  if (mood.includes('melancolia')) tags.push('noir urbano');
-  if (mood.includes('cinema noir')) tags.push('cinema noturno');
-  if (mood.includes('dream')) tags.push('sonho enevoado');
-  if (mood.includes('ambient')) tags.push('paisagem sonora');
-  if (mood.includes('rock')) tags.push('guitarras em foco');
-  if (track.bpm < 95) tags.push('pulso lento');
-  else if (track.bpm <= 125) tags.push('groove médio');
-  else tags.push('alta rotação');
-  return [...new Set(tags)].slice(0, 4);
-}
 const COLORS = ['#a8c1a4', '#f0c08f', '#aec4e6', '#e6b3b0'];
 const TILTS = [-3, 2, -1.5, 2.5];
-export const TrackStickers: React.FC<{ track: TrackData }> = ({ track }) => <div className="pierce-stickers" aria-label="Gênero e clima da faixa">
-  {tagsFor(track).map((tag, i) => <span key={tag} style={{ backgroundColor: COLORS[i % 4], transform: `rotate(${TILTS[i % 4]}deg)` }}>{tag}</span>)}
-</div>;
+
+function climateFromGenres(genres: string[]): string[] {
+  const normalized = genres.map((genre) => genre.toLowerCase());
+  const tags: string[] = [];
+  const has = (...terms: string[]) => normalized.some((genre) => terms.some((term) => genre.includes(term)));
+
+  if (has('shoegaze', 'dream pop', 'dream-pop', 'ethereal')) tags.push('◐ atmosfera etérea');
+  if (has('indie dance', 'dance punk', 'nu disco', 'disco')) tags.push('✳ pista alternativa');
+  if (has('psychedelic', 'psych rock', 'neo-psychedelia')) tags.push('✦ psicodelia');
+  if (has('ambient', 'drone', 'new age')) tags.push('◌ contemplativo');
+  if (has('metal', 'hardcore', 'punk')) tags.push('⚡ intensidade');
+  if (has('jazz', 'bossa nova', 'soul', 'r&b')) tags.push('〰 groove orgânico');
+  if (has('folk', 'acoustic', 'singer-songwriter')) tags.push('⌁ intimista');
+  if (has('techno', 'house', 'trance', 'electronic')) tags.push('◉ eletrônico');
+  if (has('dream pop', 'shoegaze', 'post-rock', 'sad', 'emo')) tags.push('☾ melancolia');
+
+  return tags;
+}
+
+export const TrackStickers: React.FC<{ track: TrackData }> = ({ track }) => {
+  const genres = [...new Set((track.genres ?? []).map((genre) => genre.trim()).filter(Boolean))];
+  const labels = [...genres.slice(0, 3), ...climateFromGenres(genres).slice(0, 2)].slice(0, 5);
+
+  if (labels.length === 0) {
+    return <div className="pierce-stickers" aria-label="Gênero indisponível">
+      <span className="pierce-sticker-unavailable">gênero não informado pelo Spotify</span>
+    </div>;
+  }
+
+  return <div className="pierce-stickers" aria-label="Gêneros e clima da faixa">
+    {labels.map((tag, i) => <span key={tag} style={{ backgroundColor: COLORS[i % COLORS.length], transform: `rotate(${TILTS[i % TILTS.length]}deg)` }}>{tag}</span>)}
+  </div>;
+};

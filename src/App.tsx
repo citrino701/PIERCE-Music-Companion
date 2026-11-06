@@ -15,7 +15,7 @@ import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
-import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics } from './services/playback/SpotifyMetadataConnector';
+import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getSpotifyArtistGenres } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
 
@@ -29,6 +29,8 @@ export default function App() {
   const [spotifyControlError, setSpotifyControlError] = useState('');
   const [spotifyShuffle, setSpotifyShuffle] = useState(false);
   const spotifyErrorTimeoutRef = useRef<number | null>(null);
+  const playbackCommandAtRef = useRef(0);
+  const playbackCommandSequenceRef = useRef(0);
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
   const [volume, setVolume] = useState<number>(0.8);
   const [visualSettings, setVisualSettings] = useState<VisualSettings>({
@@ -50,19 +52,29 @@ export default function App() {
     }
     const item = snapshot.item;
     const visualBase = TRACK_CATALOG[0];
+    const spotifyTrackId = `spotify-${item.id}`;
     setCurrentTrack({
       ...visualBase,
-      id: `spotify-${item.id}`,
+      id: spotifyTrackId,
       title: item.name,
       artist: item.artists.map((artist) => artist.name).join(', '),
       album: item.album.name,
       durationMs: item.duration_ms,
       coverImage: item.album.images?.[0]?.url ?? visualBase.coverImage,
+      genres: [],
       lyrics: [],
       chapters: [],
     });
+    // Spotify exposes genre labels on artist metadata, not on the currently-playing track.
+    // Enrich the current track asynchronously and ignore stale results after a track change.
+    void getSpotifyArtistGenres(item.artists.map((artist) => artist.id)).then((genres) => {
+      setCurrentTrack((current) => current.id === spotifyTrackId ? { ...current, genres } : current);
+    }).catch(() => {
+      setCurrentTrack((current) => current.id === spotifyTrackId ? { ...current, genres: [] } : current);
+    });
     setProgressMs(snapshot.progress_ms ?? 0);
-    setIsPlaying(snapshot.is_playing);
+    // Evita que um snapshot iniciado antes do clique reverta a resposta visual otimista.
+    if (Date.now() - playbackCommandAtRef.current > 2500) setIsPlaying(snapshot.is_playing);
   }, []);
 
   useEffect(() => {
@@ -119,12 +131,17 @@ export default function App() {
   const handleTogglePlay = useCallback(() => {
     if (spotifyConnected) {
       setSpotifyControlError('');
-      const command = isPlaying ? pauseSpotifyPlayback : resumeSpotifyPlayback;
+      const nextPlaying = !isPlaying;
+      const commandSequence = ++playbackCommandSequenceRef.current;
+      playbackCommandAtRef.current = Date.now();
+      // Atualiza o botão imediatamente; se o Spotify rejeitar o comando, restaura o estado anterior.
+      setIsPlaying(nextPlaying);
+      const command = nextPlaying ? resumeSpotifyPlayback : pauseSpotifyPlayback;
       void command().then(() => {
-        setIsPlaying(!isPlaying);
         setSpotifyControlError('');
         if (spotifyErrorTimeoutRef.current !== null) window.clearTimeout(spotifyErrorTimeoutRef.current);
       }).catch((error) => {
+        if (playbackCommandSequenceRef.current === commandSequence) setIsPlaying(!nextPlaying);
         setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao controlar o Spotify.');
         if (spotifyErrorTimeoutRef.current !== null) window.clearTimeout(spotifyErrorTimeoutRef.current);
         spotifyErrorTimeoutRef.current = window.setTimeout(() => setSpotifyControlError(''), 4500);

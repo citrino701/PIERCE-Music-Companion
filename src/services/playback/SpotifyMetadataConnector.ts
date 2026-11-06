@@ -28,7 +28,7 @@ export interface SpotifyNowPlaying {
     name: string;
     duration_ms: number;
     explicit?: boolean;
-    artists: Array<{ name: string }>;
+    artists: Array<{ id: string; name: string }>;
     album: { name: string; images?: Array<{ url: string; height?: number; width?: number }> };
   } | null;
 }
@@ -166,6 +166,41 @@ async function spotifyPlayerRequest(path: string, method: 'PUT' | 'POST'): Promi
   if (response.status === 403) throw new Error('O Spotify exige uma conta Premium e um dispositivo ativo para controlar a reprodução.');
   if (response.status === 404) throw new Error('Nenhum dispositivo Spotify ativo foi encontrado. Abra o Spotify e inicie uma faixa.');
   throw new Error('Não foi possível controlar o Spotify (erro ' + response.status + ').');
+}
+
+
+export interface SpotifyArtistGenreRecord {
+  id: string;
+  name: string;
+  genres: string[];
+}
+
+// Spotify currently marks Artist.genres as deprecated, but the endpoint still documents
+// the field. Cache successful lookups in memory to avoid repeating requests on each poll.
+const artistGenreCache = new Map<string, string[]>();
+
+export async function getSpotifyArtistGenres(artistIds: string[]): Promise<string[]> {
+  const uniqueIds = [...new Set(artistIds.filter(Boolean))];
+  const missing = uniqueIds.filter((id) => !artistGenreCache.has(id));
+  const token = getSpotifyToken();
+  if (!token || missing.length === 0) {
+    return [...new Set(uniqueIds.flatMap((id) => artistGenreCache.get(id) ?? []))];
+  }
+
+  // Keep requests small and sequentially batched to avoid a burst of artist lookups.
+  for (let start = 0; start < missing.length; start += 5) {
+    const batch = missing.slice(start, start + 5);
+    const results = await Promise.all(batch.map(async (id) => {
+      const response = await fetch('https://api.spotify.com/v1/artists/' + encodeURIComponent(id), {
+        headers: { Authorization: 'Bearer ' + token.access_token },
+      });
+      if (!response.ok) return { id, genres: [] as string[] };
+      const artist = await response.json() as { genres?: string[] };
+      return { id, genres: Array.isArray(artist.genres) ? artist.genres.filter(Boolean) : [] };
+    }));
+    results.forEach(({ id, genres }) => artistGenreCache.set(id, genres));
+  }
+  return [...new Set(uniqueIds.flatMap((id) => artistGenreCache.get(id) ?? []))];
 }
 
 export interface LyricsRecord { plainLyrics: string | null; syncedLyrics: string | null; instrumental: boolean; }
