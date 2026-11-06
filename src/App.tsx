@@ -15,9 +15,11 @@ import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
-import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getSpotifyArtistGenres } from './services/playback/SpotifyMetadataConnector';
+import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
+import { parseLrc } from './services/lyrics/lrc';
+const LYRICS_OFFSET_MS = 0;
 
 export default function App() {
   const [currentMode, setCurrentMode] = useState<ViewMode>('expanded');
@@ -31,6 +33,7 @@ export default function App() {
   const spotifyErrorTimeoutRef = useRef<number | null>(null);
   const playbackCommandAtRef = useRef(0);
   const playbackCommandSequenceRef = useRef(0);
+  const genreLookupTrackRef = useRef('');
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
   const [volume, setVolume] = useState<number>(0.8);
   const [visualSettings, setVisualSettings] = useState<VisualSettings>({
@@ -53,25 +56,19 @@ export default function App() {
     const item = snapshot.item;
     const visualBase = TRACK_CATALOG[0];
     const spotifyTrackId = `spotify-${item.id}`;
-    setCurrentTrack({
-      ...visualBase,
-      id: spotifyTrackId,
-      title: item.name,
-      artist: item.artists.map((artist) => artist.name).join(', '),
-      album: item.album.name,
-      durationMs: item.duration_ms,
-      coverImage: item.album.images?.[0]?.url ?? visualBase.coverImage,
-      genres: [],
-      lyrics: [],
-      chapters: [],
-    });
-    // Spotify exposes genre labels on artist metadata, not on the currently-playing track.
-    // Enrich the current track asynchronously and ignore stale results after a track change.
-    void getSpotifyArtistGenres(item.artists.map((artist) => artist.id)).then((genres) => {
-      setCurrentTrack((current) => current.id === spotifyTrackId ? { ...current, genres } : current);
-    }).catch(() => {
-      setCurrentTrack((current) => current.id === spotifyTrackId ? { ...current, genres: [] } : current);
-    });
+    setCurrentTrack((previous) => ({
+      ...visualBase, id: spotifyTrackId, title: item.name,
+      artist: item.artists.map((artist) => artist.name).join(', '), album: item.album.name,
+      durationMs: item.duration_ms, coverImage: item.album.images?.[0]?.url ?? visualBase.coverImage,
+      genres: previous.id === spotifyTrackId ? previous.genres : [],
+      lyrics: previous.id === spotifyTrackId ? previous.lyrics : [], chapters: [],
+    }));
+    if (genreLookupTrackRef.current !== spotifyTrackId) {
+      genreLookupTrackRef.current = spotifyTrackId;
+      void getTrackGenres({artistIds:item.artists.map(a=>a.id),title:item.name,artist:item.artists.map(a=>a.name).join(', ')}).then(genres=>{
+        setCurrentTrack(current=>current.id===spotifyTrackId?{...current,genres}:current);
+      }).catch(()=>setCurrentTrack(current=>current.id===spotifyTrackId?{...current,genres:[]}:current));
+    }
     setProgressMs(snapshot.progress_ms ?? 0);
     // Evita que um snapshot iniciado antes do clique reverta a resposta visual otimista.
     if (Date.now() - playbackCommandAtRef.current > 2500) setIsPlaying(snapshot.is_playing);
@@ -79,13 +76,15 @@ export default function App() {
 
   useEffect(() => {
     if (!spotifyConnected || !currentTrack.id.startsWith('spotify-')) { setLyricsText(null); return; }
-    let cancelled = false;
-    setLyricsText(null);
-    void fetchTrackLyrics(currentTrack).then((record) => {
-      if (!cancelled) setLyricsText(record?.plainLyrics ?? record?.syncedLyrics?.replace(/\[\d{2}:\d{2}\.\d{2}\]\s*/g, '') ?? (record?.instrumental ? 'Faixa instrumental.' : null));
-    }).catch(() => { if (!cancelled) setLyricsText(null); });
-    return () => { cancelled = true; };
-  }, [spotifyConnected, currentTrack.id]);
+    let cancelled = false; const trackId=currentTrack.id; setLyricsText(null);
+    void fetchTrackLyrics(currentTrack).then(record=>{
+      if(cancelled)return;
+      setLyricsText(record?.plainLyrics??record?.syncedLyrics?.replace(/\[\d{2}:\d{2}\.\d{2}\]\s*/g,'')??(record?.instrumental?'Faixa instrumental.':null));
+      const lines=parseLrc(record?.syncedLyrics,currentTrack.durationMs);
+      setCurrentTrack(previous=>previous.id===trackId?{...previous,lyrics:lines}:previous);
+    }).catch(()=>{if(!cancelled)setLyricsText(null);});
+    return()=>{cancelled=true;};
+  },[spotifyConnected,currentTrack.id]);
 
   // The demo uses the same provider contract reserved for future integrations.
   const playbackProviderRef = useRef<DemoPlaybackProvider | null>(null);
@@ -121,7 +120,7 @@ export default function App() {
   }, [spotifyConnected, isPlaying, currentTrack.durationMs]);
 
   // Derived state
-  const activeLyricIndex = findActiveLyricIndex(currentTrack.lyrics, progressMs);
+  const activeLyricIndex = findActiveLyricIndex(currentTrack.lyrics, progressMs + LYRICS_OFFSET_MS);
   const activeLyric = currentTrack.lyrics[activeLyricIndex];
   const activeChapterIndex = findActiveChapterIndex(currentTrack.chapters, progressMs);
   const activeChapter = currentTrack.chapters[activeChapterIndex];
