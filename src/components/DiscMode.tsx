@@ -1,6 +1,5 @@
 import React from 'react';
 import { TrackData, LyricLine, AudioFeatures, ViewMode } from '../types';
-import { NavigationRail } from './NavigationRail';
 import { TrackStickers } from './TrackStickers';
 import { PixelPlayButton } from './PixelPlayButton';
 import { formatTime } from '../services/playbackEngine';
