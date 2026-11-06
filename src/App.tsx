@@ -235,8 +235,8 @@ export default function App() {
   const isImmersive = !isBoardView && (currentMode === 'fullscreen' || currentMode === 'zen');
 
   return (
-    <main className={`min-h-screen w-full concrete-canvas text-[#121114] flex flex-col justify-between relative overflow-x-hidden selection:bg-[#002aff] selection:text-white ${!isBoardView ? "pierce-app-with-sidebar" : ""}`}>
-      {!isBoardView && <NavigationSidebar currentMode={currentMode} onSelectMode={setCurrentMode} />}
+    <main className={`min-h-screen w-full concrete-canvas text-[#121114] flex flex-col justify-between relative overflow-x-hidden selection:bg-[#002aff] selection:text-white pierce-app-with-sidebar`}>
+      <NavigationSidebar currentMode={currentMode} onSelectMode={(mode) => { setIsBoardView(false); setCurrentMode(mode); }} />
 
       {/* BACKGROUND GENERATIVE ARTIFACTS & RETRO-GRAPHIC ACCENTS (Matching image_fa343142.png) */}
       <div className="fixed inset-0 pointer-events-none select-none z-0 overflow-hidden">
