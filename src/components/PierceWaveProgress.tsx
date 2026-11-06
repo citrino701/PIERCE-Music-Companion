@@ -46,7 +46,7 @@ export const PierceWaveProgress: React.FC<Props> = ({ progressMs, durationMs, is
       if (isPlaying) frame = requestAnimationFrame(draw);
     };
     resize(); draw(performance.now());
-    const observer = new ResizeObserver(() => { resize(); draw(performance.now()); });
+    const observer = new ResizeObserver(() => { resize(); cancelAnimationFrame(frame); frame = requestAnimationFrame(draw); });
     observer.observe(wave);
     if (isPlaying) frame = requestAnimationFrame(draw);
     return () => { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); };
