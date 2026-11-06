@@ -45,8 +45,8 @@ export const PierceAsciiField: React.FC = () => {
     const down = (e: PointerEvent) => {
       const bounds = canvas.getBoundingClientRect();
       const localX = e.clientX - bounds.left, localY = e.clientY - bounds.top;
-      const scale = Math.min(width * 0.68, 780);
-      if (Math.abs(localX - width * 0.48) > scale * 0.54 || Math.abs(localY - height * 0.58) > scale * 0.20) return;
+      const scale = Math.min(width * 0.48, 610);
+      if (Math.abs(localX - width * 0.34) > scale * 0.58 || Math.abs(localY - height * 0.53) > scale * 0.24) return;
       drag.active = true; drag.pointerId = e.pointerId; drag.lastX = e.clientX; drag.lastY = e.clientY;
       canvas.setPointerCapture(e.pointerId); canvas.classList.add('is-grabbing');
     };
@@ -70,7 +70,7 @@ export const PierceAsciiField: React.FC = () => {
       }
       const cx = Math.cos(rotation.x), sx = Math.sin(rotation.x), cy = Math.cos(rotation.y), sy = Math.sin(rotation.y);
       const cz = Math.cos(rotation.z), sz = Math.sin(rotation.z);
-      const scale = Math.min(width * 0.68, 780), centerX = width * 0.48, centerY = height * 0.58;
+      const scale = Math.min(width * 0.48, 610), centerX = width * 0.34, centerY = height * 0.53;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = (width < 600 ? '7px' : '9px') + ' ui-monospace, Menlo, Consolas, monospace';
