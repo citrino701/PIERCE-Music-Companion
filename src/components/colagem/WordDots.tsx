@@ -5,8 +5,8 @@ import { layoutDots, pickDotWords } from '../../services/colagem/colagem';
 const COLOR = { a: 'var(--track-a)', b: 'var(--track-b)', ink: 'var(--ink)' } as const;
 
 /** Floating dots carrying words from the song (or title/artist when there is no lyric). */
-export const WordDots: React.FC<{ track: TrackData; playing: boolean }> = ({ track, playing }) => {
-  const dots = useMemo(() => layoutDots(track.id, pickDotWords(track)), [track.id, track.lyrics, track.title, track.artist]);
+export const WordDots: React.FC<{ track: TrackData; playing: boolean; w: number; h: number; extraWords?: string[] }> = ({ track, playing, w, h, extraWords }) => {
+  const dots = useMemo(() => layoutDots(track.id, extraWords?.length ? extraWords : pickDotWords(track), w, h), [track.id, track.lyrics, track.title, track.artist, extraWords, w, h]);
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       {dots.map((d, i) => (

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { asciiLayer, formatClock, isProtected, layoutDots, liveCover, lyricFontSize, lyricWords, pickDotWords, splitTitle, titleFontSize } from './colagem';
+import { asciiLayer, compOffset, formatClock, isProtected, layoutDots, liveCover, lyricFontSize, lyricWords, pickDotWords, splitTitle, titleFontSize } from './colagem';
 
 const line = (text: string) => ({ id: 'x', startMs: 1000, endMs: 5000, text });
 
@@ -20,6 +20,19 @@ test('dots are deterministic and never land on protected zones', () => {
   assert.notDeepEqual(a, layoutDots('track-2', ['luz', 'voz']));
   assert.equal(a.length, 30);
   for (const d of a) assert.equal(isProtected(d.x, d.y), false);
+});
+
+test('wide stages get more dots, spread into the margins, still outside protected zones', () => {
+  const w = 1900, h = 760;
+  const { ox, oy } = compOffset(w, h);
+  const dots = layoutDots('track-1', ['luz'], w, h);
+  assert.ok(dots.length > 30);
+  assert.ok(dots.some((d) => d.x < ox - 20), 'dots in the left margin');
+  assert.ok(dots.some((d) => d.x > ox + 1300), 'dots in the right margin');
+  for (const d of dots) {
+    assert.equal(isProtected(d.x - ox, d.y - oy), false);
+    assert.equal(d.x > w - 380 && d.y < 80, false, 'top-right stays free for the Spotify panel');
+  }
 });
 
 test('title splits over two lines', () => {

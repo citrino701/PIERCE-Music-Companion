@@ -49,7 +49,7 @@ export const ZenMode: React.FC<ZenModeProps> = ({
   useEffect(() => {
     const handleMouseMove = () => resetHideTimer();
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onSelectMode('expanded');
+      if (e.key === 'Escape') onSelectMode('fullscreen');
       if (e.code === 'Space') {
         e.preventDefault();
         onTogglePlay();
@@ -132,7 +132,7 @@ export const ZenMode: React.FC<ZenModeProps> = ({
 
         <button
           type="button"
-          onClick={() => onSelectMode('expanded')}
+          onClick={() => onSelectMode('fullscreen')}
           aria-label="Sair do modo Zen"
           className="flex items-center gap-2 px-3 py-1.5 bg-black/5 hover:bg-black/10 text-black/80 rounded-full border border-black/10 backdrop-blur-sm text-xs font-mono transition-all cursor-pointer"
         >

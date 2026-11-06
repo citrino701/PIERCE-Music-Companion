@@ -11,7 +11,7 @@ interface Props {
   isPlaying: boolean;
   audioFeatures: AudioFeatures;
   t: number;
-  isShuffle: boolean;
+  shuffleEnabled: boolean;
   isRepeat: boolean;
   onToggleShuffle: () => void;
   onToggleRepeat: () => void;
@@ -22,7 +22,7 @@ interface Props {
 }
 
 /** The calm area: mascot, title, dotted progress, equalizer and controls. */
-export const PlayDock: React.FC<Props> = ({ track, progressMs, isPlaying, audioFeatures, t, isShuffle, isRepeat, onToggleShuffle, onToggleRepeat, onTogglePlay, onPrevious, onNext, onSeek }) => {
+export const PlayDock: React.FC<Props> = ({ track, progressMs, isPlaying, audioFeatures, t, shuffleEnabled, isRepeat, onToggleShuffle, onToggleRepeat, onTogglePlay, onPrevious, onNext, onSeek }) => {
   const barRef = useRef<HTMLDivElement>(null);
   const duration = Math.max(1, track.durationMs);
   const played = Math.floor((progressMs / duration) * DOTS);
@@ -78,7 +78,7 @@ export const PlayDock: React.FC<Props> = ({ track, progressMs, isPlaying, audioF
       </div>
 
       <div style={{ position: 'absolute', left: 960, top: 28, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button type="button" aria-label="Modo aleatório" aria-pressed={isShuffle} onClick={onToggleShuffle} style={{ ...round(42), background: isShuffle ? 'var(--track-a)' : '#fff', color: isShuffle ? 'var(--track-on-a)' : 'var(--ink)' }}>⇄</button>
+        <button type="button" aria-label="Modo aleatório" aria-pressed={shuffleEnabled} onClick={onToggleShuffle} style={{ ...round(42), background: shuffleEnabled ? 'var(--track-a)' : '#fff', color: shuffleEnabled ? 'var(--track-on-a)' : 'var(--ink)' }}>⇄</button>
         <button type="button" aria-label="Faixa anterior" onClick={onPrevious} style={round(42)}>‹‹</button>
         <button type="button" aria-label={isPlaying ? 'Pausar' : 'Tocar'} onClick={onTogglePlay} className={isPlaying ? 'cg-pulse' : undefined}
           style={{ ...round(62), background: 'var(--track-a)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, boxShadow: '3px 4px 0 var(--ink)', transition: 'background .8s' }}>

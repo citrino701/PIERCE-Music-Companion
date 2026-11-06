@@ -55,19 +55,32 @@ export interface Dot {
 
 const hit = (x: number, y: number, x0: number, x1: number, y0: number, y1: number) => x > x0 && x < x1 && y > y0 && y < y1;
 
-/** True when a dot would land on lyrics, notes, dock, the big title, top-right info or the right edge. */
-export function isProtected(x: number, y: number): boolean {
-  return hit(x, y, 470, 1255, 120, 585) || hit(x, y, 30, 440, 30, 265) || y > 585 || hit(x, y, 480, 1255, -1, 80) || x > 1215;
+/** Composition coordinates (1280x760 core). True where a dot would cover lyrics, notes, dock, title or glyphs. */
+export function isProtected(cx: number, cy: number): boolean {
+  return (
+    hit(cx, cy, 470, 1255, 120, 585) || // lyrics + notes
+    hit(cx, cy, 30, 440, 30, 265) || // big title
+    hit(cx, cy, 30, 1250, 585, 745) || // dock
+    hit(cx, cy, 440, 500, 90, 140) || // ✦
+    hit(cx, cy, 1190, 1255, 235, 305) // ✺
+  );
 }
 
-export function layoutDots(trackId: string, words: string[], count = 30): Dot[] {
+/** Offset of the 1280x760 composition inside a stage of w x h (stage is always >= the core). */
+export const compOffset = (w: number, h: number) => ({ ox: Math.max(0, (w - STAGE_W) / 2), oy: Math.max(0, (h - STAGE_H) / 2) });
+
+/** Stage coordinates, stage is w x h. The top-right corner is kept free for the Spotify panel. */
+export function layoutDots(trackId: string, words: string[], w = STAGE_W, h = STAGE_H, count?: number): Dot[] {
+  const total = count ?? Math.max(30, Math.min(70, Math.round((30 * w * h) / (STAGE_W * STAGE_H))));
+  const { ox, oy } = compOffset(w, h);
   const rnd = seeded(hashString(trackId));
   const dots: Dot[] = [];
-  for (let i = 0; i < 900 && dots.length < count; i++) {
-    const x = Math.round(rnd() * 1240);
-    const y = Math.round(rnd() * 720);
-    if (isProtected(x, y)) continue;
-    const onBlock = x < 450;
+  for (let i = 0; i < 2000 && dots.length < total; i++) {
+    const x = Math.round(rnd() * (w - 40));
+    const y = Math.round(rnd() * (h - 40));
+    const cx = x - ox, cy = y - oy;
+    if (isProtected(cx, cy) || (x > w - 380 && y < 80)) continue;
+    const onBlock = hit(cx, cy, 30, 450, 30, 590);
     const pick = rnd();
     const color = onBlock ? (pick > 0.5 ? 'b' : 'ink') : pick > 0.66 ? 'a' : pick > 0.33 ? 'b' : 'ink';
     const wantsLabel = words.length > 0 && rnd() > 0.3;

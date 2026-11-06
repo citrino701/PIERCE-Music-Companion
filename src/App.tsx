@@ -10,19 +10,18 @@ import {
 } from './services/playbackEngine';
 import { CompactMode } from './components/CompactMode';
 import { DiscMode } from './components/DiscMode';
-import { ExpandedMode } from './components/ExpandedMode';
 import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
 import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
-import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
+import { LayoutGrid, Disc3, Monitor, Wind, Columns3 } from 'lucide-react';
 import { parseLrc } from './services/lyrics/lrc';
 const LYRICS_OFFSET_MS = 0;
 
 export default function App() {
-  const [currentMode, setCurrentMode] = useState<ViewMode>('expanded');
+  const [currentMode, setCurrentMode] = useState<ViewMode>('fullscreen');
   const [isBoardView, setIsBoardView] = useState<boolean>(false);
   const [currentTrack, setCurrentTrack] = useState<TrackData>(TRACK_CATALOG[0]);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -220,13 +219,9 @@ export default function App() {
       }
       if (e.key === '3') {
         setIsBoardView(false);
-        setCurrentMode('expanded');
-      }
-      if (e.key === '4') {
-        setIsBoardView(false);
         setCurrentMode('fullscreen');
       }
-      if (e.key === '5') {
+      if (e.key === '4') {
         setIsBoardView(false);
         setCurrentMode('zen');
       }
@@ -344,22 +339,6 @@ export default function App() {
               type="button"
               onClick={() => {
                 setIsBoardView(false);
-                setCurrentMode('expanded');
-              }}
-              className={`px-2.5 py-1 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
-                !isBoardView && currentMode === 'expanded'
-                  ? 'bg-black text-white font-bold'
-                  : 'text-black/60 hover:text-black'
-              }`}
-            >
-              <Square className="w-3.5 h-3.5" />
-              <span>03. Expandido</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsBoardView(false);
                 setCurrentMode('fullscreen');
               }}
               className={`px-2.5 py-1 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -369,7 +348,7 @@ export default function App() {
               }`}
             >
               <Monitor className="w-3.5 h-3.5" />
-              <span>04. Fullscreen</span>
+              <span>03. Fullscreen</span>
             </button>
 
             <button
@@ -385,7 +364,7 @@ export default function App() {
               }`}
             >
               <Wind className="w-3.5 h-3.5" />
-              <span>05. Zen</span>
+              <span>04. Zen</span>
             </button>
           </div>
 
@@ -468,47 +447,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* Bottom Row: 03. Expandido & 04. Fullscreen */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-4">
-              {/* 03. Expandido */}
-              <div className="lg:col-span-6 flex flex-col">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-mono text-black/70 font-medium">03. Expandido</span>
-                  <div className="h-px bg-black/20 w-16" />
-                </div>
-                <div className="w-full">
-                  <ExpandedMode
-                    track={currentTrack}
-                    tracks={TRACK_CATALOG}
-                    onSelectTrack={(t) => {
-                      handleSelectTrack(t);
-                    }}
-                    progressMs={progressMs}
-                    isPlaying={isPlaying}
-                    volume={volume}
-                    activeLyric={activeLyric}
-                    activeChapter={activeChapter}
-                    audioFeatures={audioFeatures}
-                    visualSettings={visualSettings}
-                    onUpdateVisualSettings={handleUpdateVisualSettings}
-                    currentMode={currentMode}
-                    onSelectMode={(m) => {
-                      setIsBoardView(false);
-                      setCurrentMode(m);
-                    }}
-                    onTogglePlay={handleTogglePlay}
-                    onSeek={handleSeek}
-                    onPrevious={handlePreviousTrack}
-                    onNext={handleNextTrack}
-                    onToggleMute={handleToggleMute}
-                  />
-                </div>
-              </div>
-
+            {/* Bottom Row: 03. Fullscreen */}
+            <div className="grid grid-cols-1 gap-8 items-stretch pt-4">
               {/* 04. Fullscreen preview card */}
-              <div className="lg:col-span-6 flex flex-col">
+              <div className="flex flex-col">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-mono text-black/70 font-medium">04. Fullscreen</span>
+                  <span className="text-xs font-mono text-black/70 font-medium">03. Fullscreen</span>
                   <div className="h-px bg-black/20 w-16" />
                 </div>
                 <div
@@ -534,7 +478,6 @@ export default function App() {
                     <div className="flex flex-col gap-2">
                       <LayoutGrid className="w-3.5 h-3.5 text-white/50" />
                       <Disc3 className="w-3.5 h-3.5 text-white/50" />
-                      <Square className="w-3.5 h-3.5 text-white/50" />
                       <Monitor className="w-3.5 h-3.5 text-[#002aff]" />
                     </div>
                     <div className="w-1 h-1 bg-white/20" />
@@ -573,7 +516,7 @@ export default function App() {
                       </div>
                     </div>
                     <div className="px-3 py-1 bg-black/80 rounded-full text-[11px] font-mono text-white border border-white/20 group-hover:bg-[#002aff] transition-colors">
-                      CLIQUE PARA EXPANDIR
+                      CLIQUE PARA ABRIR
                     </div>
                   </div>
                 </div>
@@ -583,7 +526,7 @@ export default function App() {
             {/* 05. Zen preview */}
             <div className="pt-4">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-mono text-black/70 font-medium">05. Zen</span>
+                <span className="text-xs font-mono text-black/70 font-medium">04. Zen</span>
                 <div className="h-px bg-black/20 w-16" />
               </div>
               <button
@@ -603,7 +546,7 @@ export default function App() {
                   style={{ backgroundColor: currentTrack.secondaryColor }}
                 />
                 <div className="relative z-10 flex min-h-[125px] flex-col justify-between">
-                  <span className="text-[10px] font-mono tracking-[0.2em] text-black/45">PIERCE / 05</span>
+                  <span className="text-[10px] font-mono tracking-[0.2em] text-black/45">PIERCE / 04</span>
                   <div>
                     <p className="max-w-3xl font-['Plus_Jakarta_Sans',sans-serif] text-2xl font-medium tracking-tight text-black sm:text-3xl">
                       {activeLyric?.text || 'O silêncio antes do compasso.'}
@@ -623,7 +566,6 @@ export default function App() {
                 <span className="text-xs font-mono text-black/70 font-medium">
                   {currentMode === 'compact' && '01. Compacto'}
                   {currentMode === 'disc' && '02. Disco'}
-                  {currentMode === 'expanded' && '03. Expandido'}
                 </span>
                 <div className="h-px bg-black/20 w-24" />
               </div>
@@ -655,34 +597,6 @@ export default function App() {
                 volume={volume}
                 activeLyric={activeLyric}
                 audioFeatures={audioFeatures}
-                currentMode={currentMode}
-                onSelectMode={setCurrentMode}
-                onTogglePlay={handleTogglePlay}
-                onSeek={handleSeek}
-                onPrevious={handlePreviousTrack}
-                onNext={handleNextTrack}
-                onToggleMute={handleToggleMute}
-              />
-            )}
-
-            {currentMode === 'expanded' && (
-              <ExpandedMode
-                track={currentTrack}
-                tracks={TRACK_CATALOG}
-                onSelectTrack={(t) => {
-                  handleSelectTrack(t);
-                }}
-                progressMs={progressMs}
-                isPlaying={isPlaying}
-                volume={volume}
-                activeLyric={activeLyric}
-                lyricsText={lyricsText}
-                onToggleShuffle={handleToggleShuffle}
-                shuffleEnabled={spotifyShuffle}
-                activeChapter={activeChapter}
-                audioFeatures={audioFeatures}
-                visualSettings={visualSettings}
-                onUpdateVisualSettings={handleUpdateVisualSettings}
                 currentMode={currentMode}
                 onSelectMode={setCurrentMode}
                 onTogglePlay={handleTogglePlay}

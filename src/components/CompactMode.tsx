@@ -78,8 +78,8 @@ export const CompactMode: React.FC<CompactModeProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onSelectMode('expanded')}
-              aria-label="Maximizar para modo Expandido"
+              onClick={() => onSelectMode('fullscreen')}
+              aria-label="Maximizar para Fullscreen"
               className="hover:text-black transition-colors cursor-pointer"
             >
               <Square className="w-3 h-3 stroke-[2]" />
@@ -221,8 +221,8 @@ export const CompactMode: React.FC<CompactModeProps> = ({
             {/* Bottom Expand Arrow */}
             <button
               type="button"
-              onClick={() => onSelectMode('expanded')}
-              aria-label="Expandir para o modo Expandido"
+              onClick={() => onSelectMode('fullscreen')}
+              aria-label="Expandir para Fullscreen"
               className="p-1 text-black hover:text-neutral-700 transition-colors cursor-pointer z-10"
             >
               <Maximize2 className="w-3.5 h-3.5" />
