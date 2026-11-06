@@ -15,7 +15,7 @@ import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
-import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics } from './services/playback/SpotifyMetadataConnector';
+import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getSpotifyArtistGenres } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
 
@@ -52,16 +52,25 @@ export default function App() {
     }
     const item = snapshot.item;
     const visualBase = TRACK_CATALOG[0];
+    const spotifyTrackId = `spotify-${item.id}`;
     setCurrentTrack({
       ...visualBase,
-      id: `spotify-${item.id}`,
+      id: spotifyTrackId,
       title: item.name,
       artist: item.artists.map((artist) => artist.name).join(', '),
       album: item.album.name,
       durationMs: item.duration_ms,
       coverImage: item.album.images?.[0]?.url ?? visualBase.coverImage,
+      genres: [],
       lyrics: [],
       chapters: [],
+    });
+    // Spotify exposes genre labels on artist metadata, not on the currently-playing track.
+    // Enrich the current track asynchronously and ignore stale results after a track change.
+    void getSpotifyArtistGenres(item.artists.map((artist) => artist.id)).then((genres) => {
+      setCurrentTrack((current) => current.id === spotifyTrackId ? { ...current, genres } : current);
+    }).catch(() => {
+      setCurrentTrack((current) => current.id === spotifyTrackId ? { ...current, genres: [] } : current);
     });
     setProgressMs(snapshot.progress_ms ?? 0);
     // Evita que um snapshot iniciado antes do clique reverta a resposta visual otimista.
