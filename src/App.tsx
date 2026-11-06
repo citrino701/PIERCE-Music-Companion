@@ -14,6 +14,7 @@ import { ExpandedMode } from './components/ExpandedMode';
 import { FullscreenMode } from './components/FullscreenMode';
 import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
+import { NavigationSidebar } from './components/NavigationSidebar';
 import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { LayoutGrid, Disc3, Square, Monitor, Wind, Columns3 } from 'lucide-react';
@@ -234,7 +235,9 @@ export default function App() {
   const isImmersive = !isBoardView && (currentMode === 'fullscreen' || currentMode === 'zen');
 
   return (
-    <main className="min-h-screen w-full concrete-canvas text-[#121114] flex flex-col justify-between relative overflow-x-hidden selection:bg-[#002aff] selection:text-white">
+    <main className="min-h-screen w-full concrete-canvas text-[#121114] flex flex-col justify-between relative overflow-x-hidden selection:bg-[#002aff] selection:text-white ${!isBoardView ? "pierce-app-with-sidebar" : ""}">
+      {!isBoardView && <NavigationSidebar currentMode={currentMode} onSelectMode={setCurrentMode} />}
+
       {/* BACKGROUND GENERATIVE ARTIFACTS & RETRO-GRAPHIC ACCENTS (Matching image_fa343142.png) */}
       <div className="fixed inset-0 pointer-events-none select-none z-0 overflow-hidden">
         {/* Left Edge Halftone / Dither Clusters */}
