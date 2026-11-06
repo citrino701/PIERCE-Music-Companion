@@ -44,8 +44,9 @@ export const PierceAsciiFrame: React.FC = () => {
 
     const build = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth;
-      height = window.innerHeight;
+      const bounds = canvas.parentElement?.getBoundingClientRect();
+      width = Math.max(1, bounds?.width ?? window.innerWidth - 64);
+      height = Math.max(1, bounds?.height ?? window.innerHeight);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       cellWidth = width < 600 ? 8 : 10;
@@ -102,8 +103,9 @@ export const PierceAsciiFrame: React.FC = () => {
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      pointer.x = event.clientX;
-      pointer.y = event.clientY;
+      const bounds = canvas.getBoundingClientRect();
+      pointer.x = event.clientX - bounds.left;
+      pointer.y = event.clientY - bounds.top;
     };
     const onPointerLeave = () => {
       pointer.x = -999;
