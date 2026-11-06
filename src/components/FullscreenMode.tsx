@@ -101,6 +101,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
     >
       {/* Main Full-Bleed Audiovisual Composition */}
       <div ref={surfaceRef} className="pierce-fullscreen-surface pierce-editorial-canvas flex-1 relative h-full overflow-hidden flex flex-col justify-between">
+        <span className="pierce-corner-star" aria-hidden="true">✦</span>
         <PierceAsciiFrame />
         <PierceAsciiField />
         {/* Top-Right: ESC Exit Button */}
@@ -130,7 +131,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
         )}
 
         {/* Bottom Bar: Title, Artist, Scrubber on Left / Controls on Right (Exact Match to Mockup) */}
-        <div className="pierce-player-bar relative z-30 p-8 md:px-14 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10">
+        <div className="pierce-player-bar relative z-30 flex flex-row items-center justify-between gap-4 px-6 pb-10 md:px-14">
           {/* Left: Song details + Scrub bar */}
           <div className="max-w-md w-full">
             <h2 className="pierce-track-title font-['Plus_Jakarta_Sans',sans-serif] text-2xl font-normal tracking-tight">
