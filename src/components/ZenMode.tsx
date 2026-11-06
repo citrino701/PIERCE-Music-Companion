@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TrackData, LyricLine, NarrativeChapter, AudioFeatures, ViewMode } from '../types';
 import { formatTime } from '../services/playbackEngine';
+import { PierceWaveProgress } from './PierceWaveProgress';
+import { TrackStickers } from './TrackStickers';
+import { PixelPlayButton } from './PixelPlayButton';
 import { Play, Pause, SkipBack, SkipForward, Minimize2, Sparkles } from 'lucide-react';
 
 interface ZenModeProps {
@@ -191,6 +194,7 @@ export const ZenMode: React.FC<ZenModeProps> = ({
         }`}
       >
         <div className="max-w-md mx-auto bg-white/70 backdrop-blur-md border border-black/10 rounded-2xl p-3 shadow-lg shadow-black/5 flex items-center justify-between gap-3">
+          <div className="w-full"><PierceWaveProgress progressMs={progressMs} durationMs={track.durationMs} isPlaying={isPlaying} onSeek={onSeek} /></div>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -201,14 +205,7 @@ export const ZenMode: React.FC<ZenModeProps> = ({
               <SkipBack className="w-4 h-4" />
             </button>
 
-            <button
-              type="button"
-              onClick={onTogglePlay}
-              aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-              className="p-2 bg-black text-white hover:bg-neutral-800 rounded-full transition-transform active:scale-95 cursor-pointer shadow-xs"
-            >
-              {isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
-            </button>
+            <PixelPlayButton isPlaying={isPlaying} progress={progressMs / Math.max(1, track.durationMs)} onClick={onTogglePlay} />
 
             <button
               type="button"
