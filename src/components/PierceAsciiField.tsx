@@ -51,10 +51,12 @@ export const PierceAsciiField: React.FC = () => {
       rotation.y += (e.clientX - drag.lastX) * 0.009;
       rotation.x = clamp(rotation.x + (e.clientY - drag.lastY) * 0.009, -1.05, 1.05);
       drag.lastX = e.clientX; drag.lastY = e.clientY;
+      if (reducedMotion) draw(performance.now());
     };
     const up = (e: PointerEvent) => {
       if (drag.pointerId !== e.pointerId) return;
       drag.active = false; drag.pointerId = -1; canvas.classList.remove('is-grabbing');
+      if (reducedMotion) draw(performance.now());
     };
     const draw = (now: number) => {
       const time = (now - startedAt) / 1000;
