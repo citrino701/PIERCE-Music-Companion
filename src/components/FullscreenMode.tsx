@@ -99,7 +99,6 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       data-testid="fullscreen-mode-container"
       className="pierce-editorial-shell fixed inset-y-0 left-16 z-50 w-[calc(100%-4rem)] overflow-hidden select-none cursor-default flex"
     >
-      <PierceAsciiFrame />
       {/* Main Full-Bleed Audiovisual Composition */}
       <div ref={surfaceRef} className="pierce-fullscreen-surface pierce-editorial-canvas flex-1 relative h-full overflow-hidden flex flex-col justify-between">
         <PierceAsciiFrame />
