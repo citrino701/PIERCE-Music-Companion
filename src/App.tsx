@@ -29,6 +29,8 @@ export default function App() {
   const [spotifyControlError, setSpotifyControlError] = useState('');
   const [spotifyShuffle, setSpotifyShuffle] = useState(false);
   const spotifyErrorTimeoutRef = useRef<number | null>(null);
+  const playbackCommandAtRef = useRef(0);
+  const playbackCommandSequenceRef = useRef(0);
   const [progressMs, setProgressMs] = useState<number>(102000); // 1:42 (matching user mockup)
   const [volume, setVolume] = useState<number>(0.8);
   const [visualSettings, setVisualSettings] = useState<VisualSettings>({
@@ -62,7 +64,8 @@ export default function App() {
       chapters: [],
     });
     setProgressMs(snapshot.progress_ms ?? 0);
-    setIsPlaying(snapshot.is_playing);
+    // Evita que um snapshot iniciado antes do clique reverta a resposta visual otimista.
+    if (Date.now() - playbackCommandAtRef.current > 2500) setIsPlaying(snapshot.is_playing);
   }, []);
 
   useEffect(() => {
@@ -119,12 +122,17 @@ export default function App() {
   const handleTogglePlay = useCallback(() => {
     if (spotifyConnected) {
       setSpotifyControlError('');
-      const command = isPlaying ? pauseSpotifyPlayback : resumeSpotifyPlayback;
+      const nextPlaying = !isPlaying;
+      const commandSequence = ++playbackCommandSequenceRef.current;
+      playbackCommandAtRef.current = Date.now();
+      // Atualiza o botão imediatamente; se o Spotify rejeitar o comando, restaura o estado anterior.
+      setIsPlaying(nextPlaying);
+      const command = nextPlaying ? resumeSpotifyPlayback : pauseSpotifyPlayback;
       void command().then(() => {
-        setIsPlaying(!isPlaying);
         setSpotifyControlError('');
         if (spotifyErrorTimeoutRef.current !== null) window.clearTimeout(spotifyErrorTimeoutRef.current);
       }).catch((error) => {
+        if (playbackCommandSequenceRef.current === commandSequence) setIsPlaying(!nextPlaying);
         setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao controlar o Spotify.');
         if (spotifyErrorTimeoutRef.current !== null) window.clearTimeout(spotifyErrorTimeoutRef.current);
         spotifyErrorTimeoutRef.current = window.setTimeout(() => setSpotifyControlError(''), 4500);
