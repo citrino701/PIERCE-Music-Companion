@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TrackData, LyricLine, NarrativeChapter, AudioFeatures, ViewMode } from '../types';
-import { NavigationRail } from './NavigationRail';
 import { formatTime } from '../services/playbackEngine';
 import { Play, Pause, SkipBack, SkipForward, Minimize2, Sparkles } from 'lucide-react';
 
@@ -78,7 +77,7 @@ export const ZenMode: React.FC<ZenModeProps> = ({
   return (
     <div
       data-testid="zen-mode-container"
-      className="fixed inset-0 z-50 bg-[#f7f5f0] text-[#161514] overflow-hidden select-none cursor-default flex flex-col justify-between"
+      className="fixed inset-y-0 left-16 z-50 w-[calc(100%-4rem)] bg-[#f7f5f0] text-[#161514] overflow-hidden select-none cursor-default flex flex-col justify-between"
       onMouseMove={resetHideTimer}
     >
       {/* ADAPTIVE ORGANIC COLOR GRADIENT BACKGROUND (Inspired by image_1bd20fe3 reference) */}
@@ -227,13 +226,7 @@ export const ZenMode: React.FC<ZenModeProps> = ({
             <span>{formatTime(track.durationMs)}</span>
           </div>
 
-          {/* Persistent Mode Switcher */}
-          <NavigationRail
-            currentMode={currentMode}
-            onSelectMode={onSelectMode}
-            compactLabels={true}
-            theme="light"
-          />
+
         </div>
       </footer>
     </div>
