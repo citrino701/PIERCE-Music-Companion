@@ -397,3 +397,92 @@
 
 
 .pierce-ascii-star{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%;pointer-events:none;opacity:.92;mix-blend-mode:normal}
+
+
+/* PIERCE editorial paper atmosphere: tactile grain, quiet dot fields and orbital marks. */
+.pierce-editorial-canvas {
+  position: relative;
+  isolation: isolate;
+  background-color: #ebe7dd;
+  background-image:
+    radial-gradient(circle at 17% 24%, rgba(181,154,85,.10) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 84% 76%, rgba(120,142,174,.09) 0 1px, transparent 1.7px),
+    linear-gradient(112deg, rgba(255,255,255,.18), transparent 42%, rgba(190,180,158,.07));
+  background-size: 19px 19px, 23px 23px, 100% 100%;
+}
+.pierce-editorial-canvas::before,
+.pierce-editorial-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.pierce-editorial-canvas::before {
+  opacity: .19;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.78' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+.pierce-editorial-canvas::after {
+  opacity: .48;
+  background:
+    radial-gradient(circle at 31% 49%, transparent 0 16%, rgba(181,154,85,.16) 16.08% 16.18%, transparent 16.28% 21%, rgba(181,154,85,.10) 21.08% 21.16%, transparent 21.26%),
+    radial-gradient(circle at 31% 49%, rgba(181,154,85,.52) 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 8% 78%, rgba(120,142,174,.42) 0 1.1px, transparent 1.8px),
+    radial-gradient(circle at 92% 18%, rgba(181,154,85,.38) 0 1.1px, transparent 1.8px);
+  background-size: 100% 100%, 17px 17px, 13px 13px, 19px 19px;
+  mask-image: linear-gradient(90deg, black, transparent 54%, black);
+}
+.pierce-ambient-composition {
+  opacity: .88;
+  mix-blend-mode: multiply;
+}
+.pierce-lyrics-layout {
+  top: 20%;
+  max-height: 56vh;
+}
+.pierce-lyrics-copy {
+  line-height: 1.34;
+  letter-spacing: -.04em;
+}
+.pierce-player-bar {
+  width: min(1240px, calc(100% - 72px));
+  padding-bottom: clamp(28px, 5vh, 58px);
+}
+.pierce-player-bar > div:first-child {
+  max-width: 620px;
+}
+.pierce-track-title {
+  letter-spacing: -.045em;
+}
+.pierce-stickers span {
+  box-shadow: 0 1px 0 rgba(36,39,32,.06);
+}
+.pierce-wave {
+  height: 48px;
+}
+.pierce-wave canvas {
+  height: 48px;
+}
+.pierce-wave-times {
+  letter-spacing: .04em;
+}
+.pierce-corner-star {
+  top: 2.2rem;
+  left: 2.4rem;
+  text-shadow: 0 0 14px rgba(181,154,85,.24);
+}
+@media (max-width: 760px) {
+  .pierce-editorial-canvas::after {
+    opacity: .28;
+    background-size: 100% 100%, 21px 21px, 17px 17px, 23px 23px;
+  }
+  .pierce-player-bar {
+    width: calc(100% - 32px);
+    padding-bottom: 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pierce-editorial-canvas::before,
+  .pierce-editorial-canvas::after { animation: none; }
+}
