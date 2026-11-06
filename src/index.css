@@ -486,3 +486,19 @@
   .pierce-editorial-canvas::before,
   .pierce-editorial-canvas::after { animation: none; }
 }
+
+/* "Bagunça 3" expanded view (docs/ui-bagunca3-spec.md) */
+@keyframes cg-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes cg-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes cg-spin { to { transform: rotate(360deg); } }
+@keyframes cg-rise { 0% { transform: translateY(0) rotate(-8deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-70px) rotate(10deg); opacity: 0; } }
+@keyframes cg-wob { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+.cg-bob { animation: cg-bob 3s ease-in-out infinite; }
+.cg-pulse { animation: cg-pulse 1.2s ease-in-out infinite; }
+.cg-spin { animation: cg-spin 8s linear infinite; }
+.cg-rise { animation: cg-rise 2.6s ease-out infinite; }
+.cg-wob { animation: cg-wob 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cg-bob, .cg-pulse, .cg-spin, .cg-rise, .cg-wob { animation: none !important; }
+  [data-testid="colagem-stage"] * { transition: none !important; }
+}

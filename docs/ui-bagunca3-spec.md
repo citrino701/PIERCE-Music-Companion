@@ -30,7 +30,7 @@ A cor muda a cada faixa (não por tempo). Tokens CSS no contêiner da tela: --tr
 ## 4. Fundo
 - Grão fino sobre o bg: pontos de 4px, rgba(20,20,43,.14).
 - Título do app ao fundo: "Pi" e "ErCe" em serifa itálica gigante. "Pi": left 23.4%, top −19.7%, fonte 68% da altura, cor `a`. "ErCe": left 36.7%, top 43.4%, fonte 50% da altura, cor `b`. Opacidade por `--title-bg-opacity` (padrão 0.8). Sobre "ErCe", faixa de linhas finas: repeating-linear-gradient(bg+alpha 0 3px, transparent 3px 10px) de left 36.7% até a borda e de top 56.6% até o fim.
-- Vinheta ASCII: dois canvases em camada (cor `b` a 50%, cor `deep` a 55%) com caracteres `ÆÉL5%#+i,'.:*Ü8`, limiar de ruído 0.30 e 0.36, 2 quadros/s com deriva lenta. Máscara radial: `radial-gradient(ellipse 46% 44% at 66% 42%, transparent 48%, #000 100%)`, deixando o centro (letra) limpo. Desenhar em canvas (adaptar PierceAsciiField), não em DOM.
+- Vinheta ASCII: dois canvases em camada (cor `b` a 50%, cor `deep` a 55%) com caracteres `ÆÉL5%#+i,'.:*Ü8`, limiar de ruído 0.30 e 0.36, 2 quadros/s com deriva lenta. Máscara radial: `radial-gradient(ellipse 46% 44% at 66% 42%, transparent 48%, #000 100%)`, deixando o centro (letra) limpo. Implementado como duas camadas `<pre>` (178×58 caracteres, atualizadas a 2 fps) para preservar a transição de cor; migrar para canvas só se houver problema de desempenho.
 
 ## 5. Bloco do título e capa viva
 - Bloco: fundo `a`, pontos de meio-tom brancos (6px, máscara que some para baixo), título em `onA`, legenda "artista / faixa NN · ano · álbum" no rodapé (usar dados reais da faixa, sem inventar).
@@ -43,7 +43,7 @@ A cor muda a cada faixa (não por tempo). Tokens CSS no contêiner da tela: --tr
 
 ## 7. Bolinhas com palavras da música
 - Componente `WordDots`: ~30 bolinhas (14–26px) com rótulo de 13px. Palavras de currentTrack.lyrics: tokenizar, remover stopwords (pt e en), manter 4+ letras, ordenar por frequência e sortear entre as melhores. Sem letra: palavras do título e do artista. Algumas bolinhas sem rótulo.
-- Posição por hash do id da faixa, com rejeição nas zonas protegidas (letra, dock, info, notas). Mais bolinhas à esquerda (cores `b` e tinta, rótulo branco).
+- Posição por hash do id da faixa, com rejeição nas zonas protegidas (letra, dock, info, notas e o título grande do bloco). Mais bolinhas à esquerda (cores `b` e tinta, rótulo branco).
 - Animação: flutuar ±7px (2.6–4.6s, atraso aleatório). Cores: `a`, `b` e tinta.
 
 ## 8. Notas (comentários)
@@ -52,7 +52,7 @@ Cada nota é uma etiqueta rotacionada (−2° a +2°), sombra dura 3×3 em tinta
 2. Ficha técnica do MusicBrainz (produtor, estúdio, ano).
 3. Anotações do Genius (opcional; checar termos de uso).
 4. Leitura escrita por IA (opcional, sempre rotulada como gerada).
-Mostrar até 3 notas, as mais próximas do tempo atual. Os textos do mock são exemplos.
+Implementado: 1) nota do usuário mais próxima do tempo atual (ou "+ anote este momento"), 2) álbum · ano e 3) bpm · tom, ambos dados reais da faixa. MusicBrainz/Genius ficam para depois.
 
 ## 9. Dock do player (zona calma)
 Painel claro (rgba(251,250,246,.96)). Da esquerda para a direita: mascote `(◕‿◕)` que balança e solta ♪/♫; título e artista + 3 bolinhas "cor da faixa"; progresso em 54 bolinhas (tocadas = `a`, a atual quica); 12 barras de equalizador; controles redondos de 42px com play de 62px em `a`, pulsando. Adaptar PierceWaveProgress e PixelPlayButton.
