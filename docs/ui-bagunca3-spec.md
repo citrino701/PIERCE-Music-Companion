@@ -3,6 +3,9 @@
 Escopo: redesenhar a interface do PIERCE Music Companion (React 19 + TypeScript + Vite) no modo `expanded`. Não mexer em Spotify, relógio de reprodução nem na letra sincronizada (parseLrc). Só apresentação.
 Referência visual: tela "Bagunça 3 (cor por faixa)" do canvas "PiErCe · antes e depois" (link privado do autor). Medidas saem dela (base 1280×760; usar % da área do app).
 
+## 0. Modos
+O modo Expandido deixou de existir: o **Fullscreen** é esta UI, ocupando a janela inteira (a composição de 1280×760 é escalada e centralizada; grão, ASCII e bolinhas continuam até as bordas). O modo reduzido (player flutuante, normal e disco) vem em outro PR.
+
 ## 1. Princípio
 Bagunça nas bordas, calma no centro. A letra e o player são sempre legíveis. Textura (ASCII, bolinhas, título gigante) fica atrás ou nas margens e nunca cobre a letra.
 
@@ -34,12 +37,12 @@ A cor muda a cada faixa (não por tempo). Tokens CSS no contêiner da tela: --tr
 
 ## 5. Bloco do título e capa viva
 - Bloco: fundo `a`, pontos de meio-tom brancos (6px, máscara que some para baixo), título em `onA`, legenda "artista / faixa NN · ano · álbum" no rodapé (usar dados reais da faixa, sem inventar).
-- Capa viva: campo ASCII animado (rampa ` .·:+*#@`) com soma de senos + onda radial; semente muda por faixa; amplitude acompanha o tempo. Selo "CAPA VIVA". Substitui qualquer imagem estática.
+- Capa viva: a foto do álbum se revela ao longo da faixa. Começo: meio-tom grosso e muito ruído; meio: dither mais fino; fim: foto com grão leve. Glitch de faixas horizontais na batida (`onset`). Se a capa não puder ser lida (CORS), mostra a foto com ruído; sem capa, cai para o campo ASCII animado (rampa ` .·:+*#@`). Selo "CAPA VIVA".
 
 ## 6. Letra
 - Estados por palavra (caixa): já cantada = fundo `a`, texto `onA`; atual = fundo tinta (#14142b), texto branco; próxima = fundo branco, texto `deep`; demais = sem caixa, com halo (`text-shadow` na cor do bg).
 - Sem dados por palavra: distribuir as palavras de cada LyricLine proporcionalmente entre startMs e endMs.
-- Linhas anterior, atual e próximas em camadas. Manter a rolagem automática da linha atual.
+- Linhas anterior, atual e próximas em camadas. Cada linha mantém o mesmo elemento ao mudar de papel, então tamanho, cor, opacidade e altura transitam em 650 ms (sem troca brusca). Sem letra sincronizada, mostra a letra simples rolável.
 
 ## 7. Bolinhas com palavras da música
 - Componente `WordDots`: ~30 bolinhas (14–26px) com rótulo de 13px. Palavras de currentTrack.lyrics: tokenizar, remover stopwords (pt e en), manter 4+ letras, ordenar por frequência e sortear entre as melhores. Sem letra: palavras do título e do artista. Algumas bolinhas sem rótulo.

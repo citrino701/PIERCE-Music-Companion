@@ -59,8 +59,7 @@ test('computeSimulatedAudioFeatures returns low values when stopped and dynamic 
 
 test('getNextMode cycles properly through modes including zen', () => {
   assert.equal(getNextMode('compact'), 'disc');
-  assert.equal(getNextMode('disc'), 'expanded');
-  assert.equal(getNextMode('expanded'), 'fullscreen');
+  assert.equal(getNextMode('disc'), 'fullscreen');
   assert.equal(getNextMode('fullscreen'), 'zen');
   assert.equal(getNextMode('zen'), 'compact');
 });
