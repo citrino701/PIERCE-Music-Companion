@@ -130,13 +130,7 @@ export const DiscMode: React.FC<DiscModeProps> = ({
         </div>
       </div>
 
-      <NavigationRail
-        currentMode={currentMode}
-        onSelectMode={onSelectMode}
-        compactLabels={true}
-        className="mt-5"
-        theme="light"
-      />
+
     </div>
   );
 };
