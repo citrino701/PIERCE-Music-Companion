@@ -1,6 +1,7 @@
 import React from 'react';
 import { TrackData, LyricLine, AudioFeatures, ViewMode } from '../types';
-import { NavigationRail } from './NavigationRail';
+import { TrackStickers } from './TrackStickers';
+import { PixelPlayButton } from './PixelPlayButton';
 import { formatTime } from '../services/playbackEngine';
 import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 
@@ -91,6 +92,7 @@ export const DiscMode: React.FC<DiscModeProps> = ({
           <p className="font-['Plus_Jakarta_Sans',sans-serif] text-[11px] text-[#555458] mt-0.5 truncate">
             {track.artist}
           </p>
+          <TrackStickers track={track} />
 
           {/* Controls Row */}
           <div className="flex items-center gap-4 mt-2.5">
@@ -103,14 +105,7 @@ export const DiscMode: React.FC<DiscModeProps> = ({
               <SkipBack className="w-3.5 h-3.5 fill-black" />
             </button>
 
-            <button
-              type="button"
-              onClick={onTogglePlay}
-              aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-              className="w-8 h-8 rounded-full bg-black text-white hover:bg-neutral-800 transition-transform active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
-            >
-              {isPlaying ? <Pause className="w-3.5 h-3.5 fill-white" /> : <Play className="w-3.5 h-3.5 fill-white ml-0.5" />}
-            </button>
+            <PixelPlayButton isPlaying={isPlaying} progress={progressRatio} onClick={onTogglePlay} />
 
             <button
               type="button"
@@ -135,13 +130,7 @@ export const DiscMode: React.FC<DiscModeProps> = ({
         </div>
       </div>
 
-      <NavigationRail
-        currentMode={currentMode}
-        onSelectMode={onSelectMode}
-        compactLabels={true}
-        className="mt-5"
-        theme="light"
-      />
+
     </div>
   );
 };

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PierceAsciiField } from './PierceAsciiField';
 import { PierceAsciiFrame } from './PierceAsciiFrame';
+import { PierceWaveProgress } from './PierceWaveProgress';
+import { TrackStickers } from './TrackStickers';
+import { PixelPlayButton } from './PixelPlayButton';
 import {
   TrackData,
   LyricLine,
@@ -94,75 +97,11 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   return (
     <div
       data-testid="fullscreen-mode-container"
-      className="pierce-editorial-shell fixed inset-0 z-50 overflow-hidden select-none cursor-default flex"
+      className="pierce-editorial-shell fixed inset-y-0 left-16 z-50 w-[calc(100%-4rem)] overflow-hidden select-none cursor-default flex"
     >
-      <PierceAsciiFrame />
-      {/* Left Vertical Dark Rail (Matching image_fa343142.png) */}
-      <div className="pierce-editorial-rail w-16 h-full flex flex-col justify-between items-center py-6 z-30 shrink-0">
-        <div className="flex flex-col items-center gap-1">
-          <span className="pierce-wordmark font-['Plus_Jakarta_Sans',sans-serif] font-semibold text-[13px] tracking-[-0.06em]">PiErCe</span>
-        </div>
-
-        {/* Vertical Mode Icons */}
-        <div className="flex flex-col items-center gap-4">
-          <button
-            type="button"
-            onClick={() => onSelectMode('compact')}
-            aria-label="Modo Compacto"
-            className="pierce-rail-button p-1.5 transition-colors cursor-pointer"
-            title="01. Compacto"
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onSelectMode('disc')}
-            aria-label="Modo Disco"
-            className="pierce-rail-button p-1.5 transition-colors cursor-pointer"
-            title="02. Disco"
-          >
-            <Disc3 className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onSelectMode('expanded')}
-            aria-label="Modo Expandido"
-            className="pierce-rail-button p-1.5 transition-colors cursor-pointer"
-            title="03. Expandido"
-          >
-            <Square className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onSelectMode('fullscreen')}
-            aria-label="Modo Fullscreen"
-            className="pierce-rail-button pierce-rail-button-active p-1.5 transition-colors cursor-pointer font-bold"
-            title="04. Fullscreen"
-          >
-            <Monitor className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onSelectMode('zen')}
-            aria-label="Modo Zen"
-            className="pierce-rail-button p-1.5 transition-colors cursor-pointer"
-            title="05. Zen"
-          >
-            <Wind className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="pierce-version text-[9px] font-mono">
-          v0.1
-        </div>
-      </div>
-
       {/* Main Full-Bleed Audiovisual Composition */}
       <div ref={surfaceRef} className="pierce-fullscreen-surface pierce-editorial-canvas flex-1 relative h-full overflow-hidden flex flex-col justify-between">
+        <PierceAsciiFrame />
         <PierceAsciiField />
         {/* Top-Right: ESC Exit Button */}
         <div className="pierce-topbar relative z-30 p-6 flex justify-end items-center gap-3">
@@ -200,34 +139,10 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
             <p className="pierce-track-artist font-['Plus_Jakarta_Sans',sans-serif] text-sm mt-0.5">
               {track.artist}
             </p>
+            <TrackStickers track={track} />
 
-            {/* Scrubber */}
-            <div className="space-y-1 mt-3">
-              <div
-                role="slider"
-                aria-label="Posição da música na tela cheia"
-                aria-valuemin={0}
-                aria-valuemax={track.durationMs}
-                aria-valuenow={progressMs}
-                tabIndex={0}
-                onClick={(e) => {
-                  triggerRipple();
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const clickX = e.clientX - rect.left;
-                  const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-                  onSeek(ratio * track.durationMs);
-                }}
-                className="pierce-scrubber relative h-1 w-full rounded-full cursor-pointer group"
-              >
-                <div
-                  className="pierce-scrubber-progress absolute left-0 top-0 bottom-0 rounded-full transition-all duration-75"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-
-              <div className="pierce-timecode text-[11px] font-mono tabular-nums">
-                {formatTime(progressMs)} / {formatTime(track.durationMs)}
-              </div>
+            <div className="mt-3">
+              <PierceWaveProgress progressMs={progressMs} durationMs={track.durationMs} isPlaying={isPlaying} onSeek={onSeek} />
             </div>
           </div>
 
@@ -251,14 +166,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
               <SkipBack className="w-4 h-4 fill-white" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => { triggerRipple(); onTogglePlay(); }}
-              aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-              className="pierce-play-button w-11 h-11 rounded-full transition-transform active:scale-95 flex items-center justify-center cursor-pointer"
-            >
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-            </button>
+            <PixelPlayButton isPlaying={isPlaying} progress={progressPercent / 100} onClick={onTogglePlay} />
 
             <button
               type="button"

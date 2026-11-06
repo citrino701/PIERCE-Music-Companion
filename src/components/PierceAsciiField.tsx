@@ -1,231 +1,101 @@
 import React, { useEffect, useRef } from 'react';
-
 type Point3D = { x: number; y: number; z: number; edge: boolean };
-
 const FACE = ['·', ':', '+', '=', '*', '&', '#'];
 const EDGE = ['%', '&', '#', '8'];
-const GLYPH = [...'魂浄濾靈聲守⊕⊥▽ψ♆&%$#@8Ψ∆∇≡≠'];
-const TWINK = ['.', '·', '+', '*', '✦'];
-const COLORS = ['#69766a', '#9a8a58', '#637aa8'];
-
-const hash = (n: number) => {
-  const value = Math.sin(n * 127.1) * 43758.5453;
-  return value - Math.floor(value);
-};
-
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
+const hash = (n: number) => { const value = Math.sin(n * 127.1) * 43758.5453; return value - Math.floor(value); };
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
 export const PierceAsciiField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
+    const canvas = canvasRef.current, ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
-
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const startedAt = performance.now();
-    let width = 0;
-    let height = 0;
-    let dpr = 1;
-    let cell = 10;
-    let points: Point3D[] = [];
-    let animationFrame = 0;
-
-    const buildWordmark = () => {
-      const source = document.createElement('canvas');
-      source.width = 420;
-      source.height = 120;
-      const sourceContext = source.getContext('2d');
-      if (!sourceContext) return;
-      sourceContext.clearRect(0, 0, source.width, source.height);
-      sourceContext.fillStyle = '#fff';
-      sourceContext.textAlign = 'center';
-      sourceContext.textBaseline = 'middle';
-      sourceContext.font = '900 104px Arial Black, Impact, sans-serif';
-      sourceContext.fillText('PiErCe', 210, 62);
-
-      const pixels = sourceContext.getImageData(0, 0, source.width, source.height).data;
-      const next: Point3D[] = [];
-      for (let y = 10; y < 112; y += 4) {
-        for (let x = 4; x < 416; x += 4) {
-          if (pixels[(y * source.width + x) * 4 + 3] < 100) continue;
-          const edge =
-            pixels[(y * source.width + Math.max(0, x - 4)) * 4 + 3] < 100 ||
-            pixels[(y * source.width + Math.min(419, x + 4)) * 4 + 3] < 100 ||
-            pixels[(Math.max(0, y - 4) * source.width + x) * 4 + 3] < 100 ||
-            pixels[(Math.min(119, y + 4) * source.width + x) * 4 + 3] < 100;
-          next.push({ x: (x - 210) / 420, y: (y - 60) / 420, z: 0.035, edge });
-          next.push({ x: (x - 210) / 420, y: (y - 60) / 420, z: -0.035, edge });
-        }
+    const startedAt = performance.now(), rotation = { x: -0.12, y: -0.35, z: 0 };
+    const drag = { active: false, pointerId: -1, lastX: 0, lastY: 0 };
+    let width = 0, height = 0, dpr = 1, points: Point3D[] = [], frame = 0;
+    const buildGeometry = () => {
+      const source = document.createElement('canvas'); source.width = 640; source.height = 190;
+      const sc = source.getContext('2d'); if (!sc) return;
+      sc.fillStyle = '#fff'; sc.textAlign = 'center'; sc.textBaseline = 'middle';
+      sc.font = '900 150px Arial Black, Impact, sans-serif'; sc.fillText('PiErCe', 320, 98);
+      const pixels = sc.getImageData(0, 0, 640, 190).data, next: Point3D[] = [], depthSteps = 7;
+      for (let y = 15; y < 180; y += 5) for (let x = 8; x < 632; x += 5) {
+        if (pixels[(y * 640 + x) * 4 + 3] < 100) continue;
+        const edge = !(
+          pixels[(y * 640 + Math.max(0, x - 5)) * 4 + 3] >= 100 &&
+          pixels[(y * 640 + Math.min(639, x + 5)) * 4 + 3] >= 100 &&
+          pixels[(Math.max(0, y - 5) * 640 + x) * 4 + 3] >= 100 &&
+          pixels[(Math.min(189, y + 5) * 640 + x) * 4 + 3] >= 100
+        );
+        for (let layer = 0; layer < depthSteps; layer++) next.push({
+          x: (x - 320) / 640, y: (y - 95) / 640,
+          z: -0.025 + layer / (depthSteps - 1) * 0.05, edge
+        });
       }
       points = next;
     };
-
-    const build = () => {
+    const resize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       const bounds = canvas.parentElement?.getBoundingClientRect();
       width = Math.max(1, bounds?.width ?? window.innerWidth - 64);
       height = Math.max(1, bounds?.height ?? window.innerHeight);
-      cell = width < 600 ? 8 : 10;
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      buildWordmark();
+      canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); buildGeometry();
     };
-
-    const put = (character: string, x: number, y: number, alpha: number, color = '#77736b') => {
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = color;
-      ctx.fillText(character, x, y);
+    const down = (e: PointerEvent) => {
+      const bounds = canvas.getBoundingClientRect();\n      const localX = e.clientX - bounds.left, localY = e.clientY - bounds.top;\n      const scale = Math.min(width * 0.68, 780);\n      if (Math.abs(localX - width * 0.48) > scale * 0.54 || Math.abs(localY - height * 0.58) > scale * 0.20) return;\n      drag.active = true; drag.pointerId = e.pointerId; drag.lastX = e.clientX; drag.lastY = e.clientY;
+      canvas.setPointerCapture(e.pointerId); canvas.classList.add('is-grabbing');
     };
-
-    const drawStar = (time: number) => {
-      const centerX = width * 0.205;
-      const centerY = height * 0.255;
-      const radius = Math.min(width, height) * 0.19;
-      const pulsePhase = 0.5 + 0.5 * Math.cos(time * Math.PI * 2 / 7);
-      const pulse = 0.12 + 0.88 * Math.pow(pulsePhase, 1.4);
-      const angle = 0.12 * Math.sin(time * 0.35);
-      const ca = Math.cos(angle);
-      const sa = Math.sin(angle);
-      const stepX = width < 600 ? 10 : 12;
-      const stepY = width < 600 ? 17 : 20;
-
-      ctx.font = (cell * 0.9) + 'px ui-monospace, Menlo, Consolas, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      for (let y = centerY - radius; y <= centerY + radius; y += stepY) {
-        for (let x = centerX - radius; x <= centerX + radius; x += stepX) {
-          const rawX = (x - centerX) / radius;
-          const rawY = (y - centerY) / radius;
-          const rx = rawX * ca + rawY * sa;
-          const ry = -rawX * sa + rawY * ca;
-          const ax = Math.abs(rx);
-          const ay = Math.abs(ry);
-          const distance = Math.hypot(rx, ry);
-          const core = clamp(1.15 - Math.sqrt(ax) - Math.sqrt(ay), 0, 1);
-          const halo = 0.62 / (1 + Math.pow(distance / 0.22, 2));
-          const rays =
-            Math.exp(-ay * 28) * Math.exp(-ax * 2.2) +
-            Math.exp(-ax * 28) * Math.exp(-ay * 2.2);
-          const diagonal = 0.22 * (
-            Math.exp(-Math.abs(rx + ry) * 28) * Math.exp(-Math.abs(rx - ry) * 3) +
-            Math.exp(-Math.abs(rx - ry) * 28) * Math.exp(-Math.abs(rx + ry) * 3)
-          );
-          let brightness = (core + halo + rays * 0.6 + diagonal) * pulse;
-          brightness *= 0.94 + (hash(Math.floor(x * 0.3 + y * 0.7) + Math.floor(time * 8)) - 0.5) * 0.14;
-          if (brightness < 0.08) continue;
-          const flicker = Math.pow(0.5 + 0.5 * Math.sin(time * 1.4 + hash(x + y) * 6.28), 3);
-          const character = brightness > 0.72 && flicker > 0.45
-            ? GLYPH[Math.floor(hash(x * 3 + y + Math.floor(time * 4)) * GLYPH.length)]
-            : FACE[Math.min(FACE.length - 1, Math.floor(brightness * FACE.length))];
-          put(character, x, y, Math.min(0.48, 0.07 + brightness * 0.29), brightness > 0.78 ? '#62665e' : '#77786f');
-        }
+    const move = (e: PointerEvent) => {
+      if (!drag.active || drag.pointerId !== e.pointerId) return;
+      rotation.y += (e.clientX - drag.lastX) * 0.009;
+      rotation.x = clamp(rotation.x + (e.clientY - drag.lastY) * 0.009, -1.05, 1.05);
+      drag.lastX = e.clientX; drag.lastY = e.clientY;
+      if (reducedMotion) draw(performance.now());
+    };
+    const up = (e: PointerEvent) => {
+      if (drag.pointerId !== e.pointerId) return;
+      drag.active = false; drag.pointerId = -1; canvas.classList.remove('is-grabbing');
+      if (reducedMotion) draw(performance.now());
+    };
+    const draw = (now: number) => {
+      const time = (now - startedAt) / 1000;
+      if (!drag.active && !reducedMotion) {
+        rotation.y += 0.0018;
+        rotation.x += (Math.sin(time * 0.22) * 0.18 - rotation.x) * 0.0018;
       }
-
-      const stars = 42;
-      for (let i = 0; i < stars; i += 1) {
-        const x = 24 + hash(i + 1) * Math.max(1, width - 48);
-        const y = 24 + hash(i + 91) * Math.max(1, height - 48);
-        const dx = (x - centerX) / radius;
-        const dy = (y - centerY) / radius;
-        if (Math.hypot(dx, dy) < 1.05) continue;
-        const twinkle = Math.pow(0.5 + 0.5 * Math.sin(time * (0.4 + hash(i + 5)) + hash(i + 9) * 6.28), 3);
-        const glyph = TWINK[Math.floor(hash(i + Math.floor(time * 0.3)) * TWINK.length)];
-        put(glyph, x, y, 0.08 + twinkle * 0.2, '#77786f');
+      const cx = Math.cos(rotation.x), sx = Math.sin(rotation.x), cy = Math.cos(rotation.y), sy = Math.sin(rotation.y);
+      const cz = Math.cos(rotation.z), sz = Math.sin(rotation.z);
+      const scale = Math.min(width * 0.68, 780), centerX = width * 0.48, centerY = height * 0.58;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = (width < 600 ? '7px' : '9px') + ' ui-monospace, Menlo, Consolas, monospace';
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i], x0 = p.x * scale, y0 = p.y * scale * 1.48, z0 = p.z * scale;
+        const x1 = x0 * cy + z0 * sy, z1 = -x0 * sy + z0 * cy;
+        const y1 = y0 * cx - z1 * sx, z2 = y0 * sx + z1 * cx;
+        const x2 = x1 * cz - y1 * sz, y2 = x1 * sz + y1 * cz;
+        const perspective = 1.8 / (1.8 - z2 / Math.max(scale, 1));
+        const px = centerX + x2 * perspective, py = centerY + y2 * perspective;
+        if (px < 4 || px > width - 4 || py < 4 || py > height - 4) continue;
+        const light = clamp(0.5 + z2 / (scale * 0.18), 0.16, 1);
+        const glyph = p.edge ? EDGE[Math.floor(hash(i * 3) * EDGE.length)] : FACE[Math.min(FACE.length - 1, Math.floor(light * FACE.length))];
+        ctx.globalAlpha = p.edge ? 0.54 : 0.34 + light * 0.42;
+        ctx.fillStyle = p.edge ? '#69766a' : (light > 0.72 ? '#596f83' : '#41443e');
+        ctx.fillText(glyph, px, py);
       }
-
-      return pulse;
+      ctx.globalAlpha = 1; if (!reducedMotion) frame = requestAnimationFrame(draw);
     };
-
-    const drawWordmark = (time: number) => {
-      const scale = Math.min(width * 0.62, 760);
-      const centerX = width * 0.34;
-      const centerY = height * 0.57;
-      const rotation = reducedMotion ? 0.18 : Math.sin(time * 0.32) * 0.28 + time * 0.12;
-      const cosine = Math.cos(rotation);
-      const sine = Math.sin(rotation);
-
-      ctx.font = (width < 600 ? '8px' : '10px') + ' ui-monospace, Menlo, Consolas, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      for (let i = 0; i < points.length; i += 1) {
-        const point = points[i];
-        const x = point.x * scale;
-        const z = point.z * scale;
-        const rotatedX = x * cosine + z * sine;
-        const depth = -x * sine + z * cosine;
-        const perspective = 1.45 / (1.45 - depth / Math.max(scale, 1));
-        const screenX = centerX + rotatedX * perspective;
-        const screenY = centerY + point.y * scale * 1.55 * perspective;
-        if (screenX < 8 || screenX > width - 8 || screenY < 8 || screenY > height - 8) continue;
-
-        const frontLight = Math.max(0, point.z > 0 ? cosine : -cosine);
-        const brightness = point.edge ? 0.5 + Math.abs(sine) * 0.32 : 0.38 + frontLight * 0.62;
-        const character = point.edge
-          ? EDGE[Math.floor(hash(i) * EDGE.length)]
-          : FACE[Math.min(FACE.length - 1, Math.floor(brightness * FACE.length))];
-        const color = point.edge ? '#596b5d' : (i % 13 === 0 ? '#536b91' : '#4f514b');
-        put(character, screenX, screenY, point.edge ? 0.48 : 0.3 + brightness * 0.38, color);
-      }
-    };
-
-    const drawDetails = (time: number, pulse: number) => {
-      ctx.font = '9px ui-monospace, Menlo, Consolas, monospace';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      const code = '4CY / LUM ' + String(Math.round(pulse * 100)).padStart(3, '0') + '%';
-      [...code].forEach((character, index) => put(character, 25 + index * 8, 34, 0.26, '#77736b'));
-
-      const dotColors = ['#718b76', '#718b76', '#b4a36d', '#b4a36d', '#b4a36d', '#7184a8'];
-      for (let row = 0; row < 6; row += 1) {
-        for (let column = 0; column < 12; column += 1) {
-          const x = 26 + column * 8;
-          const y = height - 76 + row * 8;
-          if (y < 20 || x > width - 20) continue;
-          const opacity = 0.09 + 0.24 * hash(row * 31 + column + Math.floor(time * 1.5));
-          put('•', x, y, opacity, dotColors[row]);
-        }
-      }
-
-      ctx.globalAlpha = 0.11;
-      ctx.fillStyle = '#77736b';
-      ctx.fillRect(20, 54, 1, Math.max(60, height - 120));
-      ctx.fillRect(width - 22, 54, 1, Math.max(60, height - 120));
-      ctx.globalAlpha = 1;
-    };
-
-    const frame = (now: number) => {
-      const time = reducedMotion ? 1.2 : (now - startedAt) / 1000;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-      const pulse = drawStar(time);
-      drawWordmark(time);
-      drawDetails(time, pulse);
-      ctx.globalAlpha = 1;
-      if (!reducedMotion) animationFrame = window.requestAnimationFrame(frame);
-    };
-
-    const onResize = () => {
-      build();
-      frame(performance.now());
-    };
-
-    build();
-    animationFrame = window.requestAnimationFrame(frame);
-    window.addEventListener('resize', onResize);
+    resize(); frame = requestAnimationFrame(draw);
+    canvas.addEventListener('pointerdown', down); canvas.addEventListener('pointermove', move);
+    canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+    window.addEventListener('resize', resize);
     return () => {
-      window.cancelAnimationFrame(animationFrame);
-      window.removeEventListener('resize', onResize);
+      cancelAnimationFrame(frame); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move);
+      canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); window.removeEventListener('resize', resize);
     };
   }, []);
-
-  return (
-    <div className="pierce-ambient-composition absolute inset-0 z-[2] pointer-events-none" aria-hidden="true">
-      <canvas ref={canvasRef} className="h-full w-full" />
-    </div>
-  );
+  return <div className="pierce-ambient-composition absolute inset-0 z-[2]" aria-hidden="true">
+    <canvas ref={canvasRef} className="h-full w-full pierce-3d-wordmark" />
+  </div>;
 };

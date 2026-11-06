@@ -8,6 +8,9 @@ import {
   ViewMode,
 } from '../types';
 import { formatTime } from '../services/playbackEngine';
+import { PierceWaveProgress } from './PierceWaveProgress';
+import { TrackStickers } from './TrackStickers';
+import { PixelPlayButton } from './PixelPlayButton';
 import {
   Play,
   Pause,
@@ -150,6 +153,7 @@ export const ExpandedMode: React.FC<ExpandedModeProps> = ({
               <p className="font-['Plus_Jakarta_Sans',sans-serif] text-sm text-[#555458] mt-1 font-normal">
                 {track.artist}
               </p>
+              <TrackStickers track={track} />
             </div>
 
             {/* Dynamic Synced Lyric Tooltip (Clickable toggle) */}
@@ -163,33 +167,7 @@ export const ExpandedMode: React.FC<ExpandedModeProps> = ({
               </div>
             )}
 
-            {/* Progress Scrubber Bar */}
-            <div className="space-y-1.5 mb-4">
-              <div
-                role="slider"
-                aria-label="Posição da música"
-                aria-valuemin={0}
-                aria-valuemax={track.durationMs}
-                aria-valuenow={progressMs}
-                tabIndex={0}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const clickX = e.clientX - rect.left;
-                  const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-                  onSeek(ratio * track.durationMs);
-                }}
-                className="relative h-1 w-full bg-black/15 rounded-full cursor-pointer group"
-              >
-                <div
-                  className="absolute left-0 top-0 bottom-0 bg-[#121114] rounded-full transition-all duration-75"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-
-              <div className="text-[11px] font-mono text-[#555458] tabular-nums">
-                {formatTime(progressMs)} / {formatTime(track.durationMs)}
-              </div>
-            </div>
+            <div className="mb-4"><PierceWaveProgress progressMs={progressMs} durationMs={track.durationMs} isPlaying={isPlaying} onSeek={onSeek} /></div>
 
             {/* Playback Controls Row */}
             <div className="flex items-center gap-4 pt-1">
@@ -213,14 +191,7 @@ export const ExpandedMode: React.FC<ExpandedModeProps> = ({
                 <SkipBack className="w-4 h-4 fill-black" />
               </button>
 
-              <button
-                type="button"
-                onClick={onTogglePlay}
-                aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-                className="w-11 h-11 rounded-full bg-black text-white hover:bg-neutral-800 transition-transform active:scale-95 shadow-md flex items-center justify-center cursor-pointer"
-              >
-                {isPlaying ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white ml-0.5" />}
-              </button>
+              <PixelPlayButton isPlaying={isPlaying} progress={progressPercent / 100} onClick={onTogglePlay} />
 
               <button
                 type="button"
