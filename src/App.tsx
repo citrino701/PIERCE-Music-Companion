@@ -287,7 +287,15 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleTogglePlay, handleSeek, progressMs, currentMode, changeVariant, selectMode]);
 
-  return currentMode === 'reduced' ? (
+  const reduced = currentMode === 'reduced';
+
+  return (
+    <>
+      {/* One Spotify panel for the whole app: it never remounts when the mode changes, so polling and login survive the window morph. */}
+      <div className={reduced ? 'hidden' : 'fixed right-5 top-5 z-50'}>
+        <SpotifyConnectionPanel onSnapshot={handleSpotifySnapshot} onDisconnect={() => setSpotifyConnected(false)} />
+      </div>
+      {reduced ? (
     <>
       <ReducedWidget
         track={currentTrack}
@@ -303,16 +311,11 @@ export default function App() {
         onDragStart={() => { void startDrag(); }}
       />
       {spotifyControlError && <div className="fixed bottom-1 left-1 right-1 z-[70] rounded-lg bg-black text-white px-3 py-2 text-[10px]">{spotifyControlError}</div>}
-      {/* Keeps the Spotify poller alive while the widget is shown; the panel itself is hidden. */}
-      <div className="hidden"><SpotifyConnectionPanel onSnapshot={handleSpotifySnapshot} onDisconnect={() => setSpotifyConnected(false)} /></div>
     </>
   ) : (
     <main className="min-h-screen w-full concrete-canvas text-[#121114] relative overflow-hidden selection:bg-[#002aff] selection:text-white pierce-app-with-sidebar">
       <NavigationSidebar currentMode={pipWindow ? 'reduced' : currentMode} onSelectMode={selectMode} />
       {spotifyControlError && <div className="fixed top-16 right-5 z-[70] max-w-sm rounded-lg bg-black text-white px-4 py-3 text-xs shadow-xl">{spotifyControlError}</div>}
-      <div className="fixed right-5 top-5 z-50">
-        <SpotifyConnectionPanel onSnapshot={handleSpotifySnapshot} onDisconnect={() => setSpotifyConnected(false)} />
-      </div>
       <FullscreenMode
         track={currentTrack}
         progressMs={progressMs}
@@ -351,5 +354,7 @@ export default function App() {
         pipWindow.document.body,
       )}
     </main>
+  )}
+    </>
   );
 }
