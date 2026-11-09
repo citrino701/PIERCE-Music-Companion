@@ -4,7 +4,7 @@ import {
   completeSpotifyAuthorization,
   disconnectSpotify,
   getSpotifyNowPlaying,
-  getSpotifyToken,
+  hasSpotifySession,
   type SpotifyNowPlaying,
 } from '../services/playback/SpotifyMetadataConnector';
 
@@ -23,19 +23,21 @@ export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConn
   const refreshInFlight = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (refreshInFlight.current || document.visibilityState === 'hidden') return;
+    // No visibility guard: with the widget in its own window the main page is "hidden" but must keep syncing.
+    if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     try {
       const snapshot = await getSpotifyNowPlaying();
       onSnapshot?.(snapshot);
-      setTrack(snapshot?.item ?? null);
-      setProgressMs(snapshot?.progress_ms ?? null);
+      // Spotify answers "nothing active" a few minutes after a pause: keep showing the last track instead of wiping it.
+      setTrack((previous) => snapshot?.item ?? previous);
+      setProgressMs((previous) => (snapshot ? snapshot.progress_ms ?? null : previous));
       setPlaying(snapshot?.is_playing ?? false);
       setConnected(true);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível consultar o Spotify.');
-      if (!getSpotifyToken()) setConnected(false);
+      if (!hasSpotifySession()) setConnected(false);
     } finally {
       refreshInFlight.current = false;
     }
@@ -48,7 +50,7 @@ export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConn
         const completed = await completeSpotifyAuthorization();
         if (!active) return;
         // With a stored token, start polling right away; a first refresh skipped while the window is hidden must not leave us disconnected.
-        if (completed || getSpotifyToken()) { setConnected(true); await refresh(); }
+        if (completed || hasSpotifySession()) { setConnected(true); await refresh(); }
         else setConnected(false);
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : 'Falha na autenticação Spotify.');

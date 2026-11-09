@@ -4,6 +4,7 @@
  * Spotify audio is never captured, analyzed, or synchronized to visuals here.
  */
 import { pickBestLyricsRecord } from '../lyrics/lrc';
+import { mergeRefreshedToken, needsRefresh, pickDevice, withDevice, type SpotifyDevice } from './spotifyResilience';
 
 const CLIENT_ID = '22cbfb1b63b146b79892330d3838609f';
 const WEB_REDIRECT_URI = 'https://pierce-music-companion.hugoviajante.workers.dev/';
@@ -31,6 +32,7 @@ export interface SpotifyToken {
 export interface SpotifyNowPlaying {
   is_playing: boolean;
   shuffle_state?: boolean;
+  device?: SpotifyDevice | null;
   progress_ms: number | null;
   item: {
     id: string;
@@ -103,28 +105,79 @@ export async function completeSpotifyAuthorization(): Promise<boolean> {
   return true;
 }
 
-export function getSpotifyToken(): SpotifyToken | null {
+function readStoredToken(): SpotifyToken | null {
   const raw = localStorage.getItem(TOKEN_KEY);
   if (!raw) return null;
-  try {
-    const token = JSON.parse(raw) as SpotifyToken;
-    return token.expires_at > Date.now() + 30_000 ? token : null;
-  } catch {
-    localStorage.removeItem(TOKEN_KEY);
-    return null;
-  }
+  try { return JSON.parse(raw) as SpotifyToken; } catch { localStorage.removeItem(TOKEN_KEY); return null; }
 }
 
+/** Still-valid access token, without renewing (kept for synchronous checks). */
+export function getSpotifyToken(): SpotifyToken | null {
+  const token = readStoredToken();
+  return token && token.expires_at > Date.now() + 30_000 ? token : null;
+}
+
+/** True while there is a session we can use or renew: the person does not need to log in again. */
+export function hasSpotifySession(): boolean {
+  const token = readStoredToken();
+  return !!token && (!!token.refresh_token || token.expires_at > Date.now() + 30_000);
+}
+
+let refreshing: Promise<SpotifyToken | null> | null = null;
+
+/** Trades the refresh token for a new access token (PKCE flow: no client secret). */
+export function refreshSpotifyToken(): Promise<SpotifyToken | null> {
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    const old = readStoredToken();
+    if (!old?.refresh_token) return null;
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: old.refresh_token, client_id: CLIENT_ID }),
+    });
+    if (response.status === 400 || response.status === 401) { localStorage.removeItem(TOKEN_KEY); return null; } // revoked: login needed
+    if (!response.ok) throw new Error(`Falha ao renovar a sessão Spotify (${response.status}).`);
+    const merged = mergeRefreshedToken(old, await response.json());
+    localStorage.setItem(TOKEN_KEY, JSON.stringify(merged));
+    return merged;
+  })().finally(() => { refreshing = null; });
+  return refreshing;
+}
+
+/** Access token that is valid right now, renewing it first when it is about to expire. */
+export async function getValidSpotifyToken(): Promise<SpotifyToken | null> {
+  const token = readStoredToken();
+  if (!token) return null;
+  if (!needsRefresh(token)) return token;
+  if (!token.refresh_token) return token.expires_at > Date.now() ? token : null;
+  return refreshSpotifyToken();
+}
+
+/** fetch with Bearer auth; on 401 renews once and retries. */
+async function spotifyFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  let token = await getValidSpotifyToken();
+  if (!token) throw new Error('Conecte novamente sua conta Spotify para liberar os controles.');
+  const call = (t: SpotifyToken) => fetch(url, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), Authorization: 'Bearer ' + t.access_token } });
+  let response = await call(token);
+  if (response.status === 401) {
+    token = await refreshSpotifyToken();
+    if (token) response = await call(token);
+  }
+  return response;
+}
+
+let lastDeviceId: string | null = null;
+
 export async function getSpotifyNowPlaying(): Promise<SpotifyNowPlaying | null> {
-  const token = getSpotifyToken();
-  if (!token) throw new Error('Conecte sua conta Spotify novamente para atualizar a sessão.');
-  const response = await fetch('https://api.spotify.com/v1/me/player', {
-    headers: { Authorization: `Bearer ${token.access_token}` },
-  });
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/player');
+  // 204 = no active device (Spotify drops it a few minutes after pausing). Not an error and not a logout.
   if (response.status === 204) return null;
   if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
   if (!response.ok) throw new Error(`Spotify API respondeu com erro ${response.status}.`);
-  return await response.json() as SpotifyNowPlaying;
+  const snapshot = await response.json() as SpotifyNowPlaying;
+  if (snapshot.device?.id) lastDeviceId = snapshot.device.id;
+  return snapshot;
 }
 
 export async function pauseSpotifyPlayback(): Promise<void> {
@@ -136,19 +189,7 @@ export async function resumeSpotifyPlayback(): Promise<void> {
 }
 
 async function spotifyPlaybackCommand(action: 'pause' | 'play'): Promise<void> {
-  const token = getSpotifyToken();
-  if (!token) throw new Error('Conecte novamente sua conta Spotify para liberar os controles.');
-  const response = await fetch('https://api.spotify.com/v1/me/player/' + action, {
-    method: 'PUT',
-    headers: { Authorization: 'Bearer ' + token.access_token },
-  });
-  // Spotify documents 204, but some successful Player API responses arrive as 200/202.
-  // Treat every 2xx response as success; only surface actual HTTP failures.
-  if (response.ok) return;
-  if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
-  if (response.status === 403) throw new Error('O Spotify exige uma conta Premium e um dispositivo ativo para controlar a reprodução.');
-  if (response.status === 404) throw new Error('Nenhum dispositivo Spotify ativo foi encontrado. Abra o Spotify e inicie uma faixa.');
-  throw new Error('Não foi possível controlar o Spotify (erro ' + response.status + ').');
+  return spotifyPlayerRequest('/' + action, 'PUT');
 }
 
 export async function seekSpotifyPlayback(positionMs: number): Promise<void> {
@@ -163,17 +204,34 @@ export async function setSpotifyShuffle(enabled: boolean): Promise<void> {
   return spotifyPlayerRequest('/shuffle?state=' + String(enabled), 'PUT');
 }
 
+const NO_DEVICE_MESSAGE = 'Não achei nenhum dispositivo Spotify. Abra o Spotify no PC ou no celular, toque uma faixa uma vez e tente de novo.';
+
+async function wakeDevice(): Promise<string | null> {
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/player/devices');
+  if (!response.ok) return null;
+  const { devices } = await response.json() as { devices?: SpotifyDevice[] };
+  const chosen = pickDevice(devices ?? [], lastDeviceId);
+  if (chosen?.id) lastDeviceId = chosen.id;
+  return chosen?.id ?? null;
+}
+
+/**
+ * Player command. Always targets the last known device; if Spotify answers "no active device"
+ * (it forgets an idle device after a few minutes) the device list is consulted and the command is retried there.
+ */
 async function spotifyPlayerRequest(path: string, method: 'PUT' | 'POST'): Promise<void> {
-  const token = getSpotifyToken();
-  if (!token) throw new Error('Conecte novamente sua conta Spotify para liberar os controles.');
-  const response = await fetch('https://api.spotify.com/v1/me/player' + path, {
-    method,
-    headers: { Authorization: 'Bearer ' + token.access_token },
-  });
+  const send = (deviceId: string | null) => spotifyFetch('https://api.spotify.com/v1/me/player' + withDevice(path, deviceId), { method });
+  let response = await send(lastDeviceId);
+  if (response.status === 404) {
+    const deviceId = await wakeDevice();
+    if (!deviceId) throw new Error(NO_DEVICE_MESSAGE);
+    response = await send(deviceId);
+  }
+  // Spotify documents 204, but some successful Player API responses arrive as 200/202.
   if (response.ok) return;
   if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
-  if (response.status === 403) throw new Error('O Spotify exige uma conta Premium e um dispositivo ativo para controlar a reprodução.');
-  if (response.status === 404) throw new Error('Nenhum dispositivo Spotify ativo foi encontrado. Abra o Spotify e inicie uma faixa.');
+  if (response.status === 403) throw new Error('O Spotify exige uma conta Premium para controlar a reprodução.');
+  if (response.status === 404) throw new Error(NO_DEVICE_MESSAGE);
   throw new Error('Não foi possível controlar o Spotify (erro ' + response.status + ').');
 }
 
@@ -183,7 +241,7 @@ const trackGenreCache=new Map<string,string[]>();
 const trackGenrePending=new Map<string,Promise<string[]>>();
 let lastMbRequest=0;
 async function mbFetch(url:string):Promise<Response>{const wait=Math.max(0,1100-(Date.now()-lastMbRequest));if(wait)await new Promise(resolve=>window.setTimeout(resolve,wait));lastMbRequest=Date.now();return fetch(url,{headers:{Accept:'application/json'}});}
-async function spotifyArtistGenres(ids:string[]):Promise<string[]>{const token=getSpotifyToken();if(!token)return[];const missing=[...new Set(ids.filter(Boolean))].filter(id=>!artistGenreCache.has(id));for(let i=0;i<missing.length;i+=5){const results=await Promise.all(missing.slice(i,i+5).map(async id=>{try{const res=await fetch('https://api.spotify.com/v1/artists/'+encodeURIComponent(id),{headers:{Authorization:'Bearer '+token.access_token}});if(!res.ok)return{id,genres:[] as string[]};const data=await res.json() as {genres?:string[]};return{id,genres:Array.isArray(data.genres)?data.genres.filter(Boolean):[]};}catch{return{id,genres:[] as string[]};}}));results.forEach(x=>artistGenreCache.set(x.id,x.genres));}return[...new Set(ids.flatMap(id=>artistGenreCache.get(id)??[]))];}
+async function spotifyArtistGenres(ids:string[]):Promise<string[]>{const token=await getValidSpotifyToken();if(!token)return[];const missing=[...new Set(ids.filter(Boolean))].filter(id=>!artistGenreCache.has(id));for(let i=0;i<missing.length;i+=5){const results=await Promise.all(missing.slice(i,i+5).map(async id=>{try{const res=await fetch('https://api.spotify.com/v1/artists/'+encodeURIComponent(id),{headers:{Authorization:'Bearer '+token.access_token}});if(!res.ok)return{id,genres:[] as string[]};const data=await res.json() as {genres?:string[]};return{id,genres:Array.isArray(data.genres)?data.genres.filter(Boolean):[]};}catch{return{id,genres:[] as string[]};}}));results.forEach(x=>artistGenreCache.set(x.id,x.genres));}return[...new Set(ids.flatMap(id=>artistGenreCache.get(id)??[]))];}
 async function musicBrainzArtistTags(artist:string):Promise<string[]>{
  const query=`artist:"${artist.split(',')[0].trim()}"`;
  const search=await mbFetch('https://musicbrainz.org/ws/2/artist/?'+new URLSearchParams({query,fmt:'json',limit:'5'}));
