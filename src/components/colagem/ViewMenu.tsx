@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { SlidersHorizontal } from 'lucide-react';
 import {
   ELEMENT_LABELS, ELEMENT_PRESETS, LAYOUT_LABELS, LYRIC_SCALE_MAX, LYRIC_SCALE_MIN,
@@ -41,14 +42,15 @@ export const ViewMenu: React.FC<Props> = ({ prefs, layout, onChange }) => {
     </div>
   );
 
-  return (
-    <div ref={root} style={{ position: 'absolute', left: 12, top: 12, zIndex: 30, fontFamily: "'Arimo', sans-serif" }}>
-      <button type="button" aria-label="Elementos e layout" aria-expanded={open} title="Elementos e layout" onClick={() => setOpen((o) => !o)}
-        style={{ width: 34, height: 34, display: 'grid', placeItems: 'center', background: '#fff', color: '#111', border: '2px solid #111', boxShadow: '3px 3px 0 #111', cursor: 'pointer', opacity: open ? 1 : 0.55 }}>
+  // Lives in the navigation rail (portal to <body>), so it never covers the stage or the "Instalar" pill.
+  return createPortal(
+    <div ref={root} style={{ position: 'fixed', left: 0, top: 0, zIndex: 90, fontFamily: "'Arimo', sans-serif" }}>
+      <button type="button" className="pierce-rail-button" aria-label="Elementos e layout" aria-expanded={open} title="Elementos e layout" onClick={() => setOpen((o) => !o)}
+        style={{ position: 'fixed', left: 19, top: 56, padding: 6, cursor: 'pointer', background: 'transparent', border: 'none', color: open ? '#fff' : undefined }}>
         <SlidersHorizontal size={16} />
       </button>
       {open && (
-        <div role="dialog" aria-label="Elementos e layout" style={{ marginTop: 8, width: 260, maxWidth: 'calc(100vw - 100px)', padding: 14, background: '#fff', color: '#111', border: '2px solid #111', boxShadow: '5px 5px 0 #111', maxHeight: 'calc(100vh - 90px)', overflowY: 'auto' }}>
+        <div role="dialog" aria-label="Elementos e layout" style={{ position: 'fixed', left: 72, top: 12, width: 260, maxWidth: 'calc(100vw - 90px)', padding: 14, background: '#fff', color: '#111', border: '2px solid #111', boxShadow: '5px 5px 0 #111', maxHeight: 'calc(100vh - 90px)', overflowY: 'auto' }}>
           {STAGE_VIEWS.length > 1 && group('Visualização', (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {STAGE_VIEWS.map((v) => <button key={v.id} type="button" title={v.description} style={seg(prefs.viewId === v.id)} onClick={() => onChange({ ...prefs, viewId: v.id })}>{v.label}</button>)}
@@ -89,6 +91,7 @@ export const ViewMenu: React.FC<Props> = ({ prefs, layout, onChange }) => {
           ))}
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 };
