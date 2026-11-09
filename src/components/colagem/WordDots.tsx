@@ -1,12 +1,17 @@
 import React, { useMemo } from 'react';
 import type { TrackData } from '../../types';
 import { layoutDots, pickDotWords } from '../../services/colagem/colagem';
+import { layoutDotsCompact } from '../../services/colagem/layout';
 
 const COLOR = { a: 'var(--track-a)', b: 'var(--track-b)', ink: 'var(--ink)' } as const;
 
 /** Floating dots carrying words from the song (or title/artist when there is no lyric). */
-export const WordDots: React.FC<{ track: TrackData; playing: boolean; w: number; h: number; extraWords?: string[] }> = ({ track, playing, w, h, extraWords }) => {
-  const dots = useMemo(() => layoutDots(track.id, extraWords?.length ? extraWords : pickDotWords(track), w, h), [track.id, track.lyrics, track.title, track.artist, extraWords, w, h]);
+/** `compact` = free band (px from the top / bottom edge) used by the narrow layouts instead of the full composition's zones. */
+export const WordDots: React.FC<{ track: TrackData; playing: boolean; w: number; h: number; extraWords?: string[]; compact?: { top: number; bottom: number } }> = ({ track, playing, w, h, extraWords, compact }) => {
+  const dots = useMemo(() => {
+    const words = extraWords?.length ? extraWords : pickDotWords(track);
+    return compact ? layoutDotsCompact(track.id, words, w, h, compact.top, compact.bottom) : layoutDots(track.id, words, w, h);
+  }, [track.id, track.lyrics, track.title, track.artist, extraWords, w, h, compact?.top, compact?.bottom]);
   return (
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       {dots.map((d, i) => (

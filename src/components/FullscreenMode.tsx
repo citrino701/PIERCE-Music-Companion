@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   TrackData,
   LyricLine,
@@ -8,7 +8,15 @@ import {
   ViewMode,
 } from '../types';
 import { TRACK_CATALOG } from '../data/tracks';
-import { ColagemStage } from './colagem/ColagemStage';
+import {
+  VIEW_STORAGE_KEY, elementsFor, parseViewPrefs, resolveLayout, serializeViewPrefs, type ViewPrefs,
+} from '../services/colagem/layout';
+import { getStageView } from './colagem/views/registry';
+import { ViewMenu } from './colagem/ViewMenu';
+
+function loadPrefs(): ViewPrefs {
+  try { return parseViewPrefs(localStorage.getItem(VIEW_STORAGE_KEY)); } catch { return parseViewPrefs(null); }
+}
 
 interface FullscreenModeProps {
   track: TrackData;
@@ -48,6 +56,28 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   onPrevious,
   onNext,
 }) => {
+  const [prefs, setPrefs] = useState<ViewPrefs>(loadPrefs);
+  const [box, setBox] = useState({ w: 1280, h: 760 });
+  const host = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(VIEW_STORAGE_KEY, serializeViewPrefs(prefs)); } catch { /* storage may be blocked */ }
+  }, [prefs]);
+
+  useLayoutEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const update = () => setBox({ w: el.clientWidth || 1280, h: el.clientHeight || 760 });
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const layout = resolveLayout(box.w, box.h, prefs);
+  const View = getStageView(prefs.viewId).Component;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
@@ -61,8 +91,8 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   }, [onSelectMode]);
 
   return (
-    <div data-testid="fullscreen-mode-container" className="fixed top-0 right-0 bottom-0 left-16 z-20 overflow-hidden">
-      <ColagemStage
+    <div ref={host} data-testid="fullscreen-mode-container" className="fixed top-0 right-0 bottom-0 left-16 z-20 overflow-hidden">
+      <View
         track={track}
         tracks={TRACK_CATALOG}
         progressMs={progressMs}
@@ -76,7 +106,12 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
         onSeek={onSeek}
         onPrevious={onPrevious}
         onNext={onNext}
+        layout={layout}
+        compactStyle={prefs.compactStyle}
+        elements={elementsFor(layout, prefs)}
+        lyricScale={prefs.lyricScale}
       />
+      <ViewMenu prefs={prefs} layout={layout} onChange={setPrefs} />
     </div>
   );
 };

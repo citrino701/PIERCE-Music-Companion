@@ -1,6 +1,7 @@
 import React from 'react';
 import type { LyricLine } from '../../types';
-import { lyricFontSize, lyricWords } from '../../services/colagem/colagem';
+import { lyricWords } from '../../services/colagem/colagem';
+import { lyricSizes, type LyricSizes } from '../../services/colagem/layout';
 
 const SERIF = "'Instrument Serif', Georgia, serif";
 const HALO = '0 0 10px var(--track-bg), 0 0 4px var(--track-bg)';
@@ -11,35 +12,38 @@ type Role = 'gone' | 'past' | 'current' | 'next1' | 'next2' | 'far';
 const ROLES: Role[] = ['gone', 'past', 'current', 'next1', 'next2', 'far'];
 
 interface RoleStyle { size: number; opacity: number; maxHeight: number; marginTop: number; color: string; shadow: string }
-const roleStyle = (role: Role, current: string): RoleStyle => {
+const roleStyle = (role: Role, current: string, sizes: LyricSizes): RoleStyle => {
   switch (role) {
-    case 'gone': return { size: 18, opacity: 0, maxHeight: 0, marginTop: 0, color: 'var(--track-deep)', shadow: 'none' };
-    case 'past': return { size: 24, opacity: 0.9, maxHeight: 30, marginTop: 0, color: 'var(--track-deep)', shadow: 'none' };
-    case 'current': return { size: lyricFontSize(current), opacity: 1, maxHeight: 420, marginTop: 14, color: 'var(--ink)', shadow: HALO };
-    case 'next1': return { size: 32, opacity: 1, maxHeight: 84, marginTop: 14, color: 'var(--ink)', shadow: '0 0 8px var(--track-bg)' };
-    case 'next2': return { size: 26, opacity: 1, maxHeight: 64, marginTop: 2, color: '#5a5a73', shadow: 'none' };
-    default: return { size: 22, opacity: 0, maxHeight: 0, marginTop: 0, color: '#5a5a73', shadow: 'none' };
+    case 'gone': return { size: sizes.past, opacity: 0, maxHeight: 0, marginTop: 0, color: 'var(--track-deep)', shadow: 'none' };
+    case 'past': return { size: sizes.past, opacity: 0.9, maxHeight: Math.ceil(sizes.past * 1.25), marginTop: 0, color: 'var(--track-deep)', shadow: 'none' };
+    case 'current': { const size = sizes.current(current); return { size, opacity: 1, maxHeight: Math.round(size * 6.2), marginTop: 14, color: 'var(--ink)', shadow: HALO }; }
+    case 'next1': return { size: sizes.next1, opacity: 1, maxHeight: Math.ceil(sizes.next1 * 2.6), marginTop: 14, color: 'var(--ink)', shadow: '0 0 8px var(--track-bg)' };
+    case 'next2': return { size: sizes.next2, opacity: 1, maxHeight: Math.ceil(sizes.next2 * 2.46), marginTop: 2, color: '#5a5a73', shadow: 'none' };
+    default: return { size: sizes.next2, opacity: 0, maxHeight: 0, marginTop: 0, color: '#5a5a73', shadow: 'none' };
   }
 };
 
-interface Props { lines: LyricLine[]; active?: LyricLine; progressMs: number; plainText?: string | null }
+export interface LyricRect { left: number; top: number; width: number; height: number }
+const FULL_RECT: LyricRect = { left: 500, top: 140, width: 740, height: 350 };
+
+interface Props { lines: LyricLine[]; active?: LyricLine; progressMs: number; plainText?: string | null; rect?: LyricRect; sizes?: LyricSizes }
 
 /**
  * Past / current / next lines in the serif face. Every line keeps its DOM node while it moves
  * between roles, so size, colour, opacity and height ease smoothly instead of swapping abruptly.
  */
-export const LyricStack: React.FC<Props> = ({ lines, active, progressMs, plainText }) => {
-  const box: React.CSSProperties = { position: 'absolute', left: 500, top: 140, width: 740, height: 350, overflow: 'hidden' };
+export const LyricStack: React.FC<Props> = ({ lines, active, progressMs, plainText, rect = FULL_RECT, sizes = lyricSizes('full', 1280) }) => {
+  const box: React.CSSProperties = { position: 'absolute', ...rect, overflow: 'hidden' };
 
   if (lines.length === 0 && plainText) {
     return (
       <div style={{ ...box, overflowY: 'auto', WebkitMaskImage: 'linear-gradient(#000 85%, transparent)', maskImage: 'linear-gradient(#000 85%, transparent)' }}>
-        <p style={{ margin: 0, font: `400 30px/1.25 ${SERIF}`, color: 'var(--ink)', textShadow: HALO, whiteSpace: 'pre-line' }}>{plainText}</p>
+        <p style={{ margin: 0, font: `400 ${sizes.plain}px/1.25 ${SERIF}`, color: 'var(--ink)', textShadow: HALO, whiteSpace: 'pre-line' }}>{plainText}</p>
       </div>
     );
   }
   if (lines.length === 0) {
-    return <div style={box}><div style={{ marginTop: 38, font: `400 68px/1.12 ${SERIF}`, color: 'var(--ink)', textShadow: HALO }}>O silêncio antes do compasso.</div></div>;
+    return <div style={box}><div style={{ marginTop: 38, font: `400 ${sizes.current('')}px/1.12 ${SERIF}`, color: 'var(--ink)', textShadow: HALO }}>O silêncio antes do compasso.</div></div>;
   }
 
   const idx = active ? lines.findIndex((l) => l.id === active.id) : -1;
@@ -51,7 +55,7 @@ export const LyricStack: React.FC<Props> = ({ lines, active, progressMs, plainTe
     <div style={box} aria-live="polite">
       {visible.map((line, k) => {
         const role = ROLES[from + k - idx + 2];
-        const st = roleStyle(role, line.text);
+        const st = roleStyle(role, line.text, sizes);
         const isCurrent = role === 'current';
         const words = isCurrent ? lyricWords(line, progressMs) : line.text.split(/\s+/).filter(Boolean).map((text) => ({ text, state: 'rest' as const }));
         return (
