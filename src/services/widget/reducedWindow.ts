@@ -9,7 +9,12 @@ interface SavedGeometry { width: number; height: number; x: number; y: number; m
 
 let saved: SavedGeometry | null = null;
 
-export const isTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+/** True inside the Tauri desktop shell. Several markers are checked because they differ between Tauri versions and dev/prod URLs. */
+export const isTauri = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const w = window as unknown as Record<string, unknown>;
+  return !!(w.isTauri || w.__TAURI_INTERNALS__ || w.__TAURI__ || w.__TAURI_METADATA__ || /tauri/i.test(window.location.protocol + window.location.hostname));
+};
 
 async function api() {
   const [{ getCurrentWindow, LogicalSize, LogicalPosition, currentMonitor }] = await Promise.all([
@@ -18,32 +23,56 @@ async function api() {
   return { win: getCurrentWindow(), LogicalSize, LogicalPosition, currentMonitor };
 }
 
-/** Enter the floating widget: small, borderless, transparent, always on top. */
-export async function enterReduced(variant: WidgetVariant, position: { x: number; y: number } | null): Promise<void> {
-  if (!isTauri()) return;
-  const { win, LogicalSize, LogicalPosition, currentMonitor } = await api();
-  const scale = await win.scaleFactor();
+/** Runs one window call; a failure is recorded (and logged) instead of aborting the whole morph. */
+async function step(errors: string[], name: string, fn: () => Promise<unknown>): Promise<void> {
+  try { await fn(); } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[reduzido] ${name} falhou:`, err);
+    errors.push(`${name}: ${msg}`);
+  }
+}
+
+/** Enter the floating widget: small, borderless, transparent, always on top. Returns the steps that failed (empty = all good). */
+export async function enterReduced(variant: WidgetVariant, position: { x: number; y: number } | null): Promise<string[]> {
+  const errors: string[] = [];
+  if (!isTauri()) return errors;
+  let win: Awaited<ReturnType<typeof api>>['win'];
+  let LogicalSize: Awaited<ReturnType<typeof api>>['LogicalSize'];
+  let LogicalPosition: Awaited<ReturnType<typeof api>>['LogicalPosition'];
+  let currentMonitor: Awaited<ReturnType<typeof api>>['currentMonitor'];
+  try { ({ win, LogicalSize, LogicalPosition, currentMonitor } = await api()); } catch (err) {
+    return [`api da janela: ${err instanceof Error ? err.message : String(err)}`];
+  }
+  let scale = 1;
+  await step(errors, 'scaleFactor', async () => { scale = await win.scaleFactor(); });
   if (!saved) {
-    const [size, pos, maximized, fullscreen] = await Promise.all([win.innerSize(), win.outerPosition(), win.isMaximized(), win.isFullscreen()]);
-    const ls = size.toLogical(scale), lp = pos.toLogical(scale);
-    saved = { width: ls.width, height: ls.height, x: lp.x, y: lp.y, maximized, fullscreen };
+    let geo: SavedGeometry = { width: 1440, height: 900, x: 80, y: 60, maximized: false, fullscreen: false };
+    await step(errors, 'ler geometria', async () => {
+      const [size, pos, maximized, fullscreen] = await Promise.all([win.innerSize(), win.outerPosition(), win.isMaximized(), win.isFullscreen()]);
+      const ls = size.toLogical(scale), lp = pos.toLogical(scale);
+      geo = { width: ls.width, height: ls.height, x: lp.x, y: lp.y, maximized, fullscreen };
+    });
+    saved = geo;
   }
   const size = WIDGET_SIZES[variant];
-  const monitor = await currentMonitor();
-  const screen = monitor ? { width: monitor.size.width / monitor.scaleFactor, height: monitor.size.height / monitor.scaleFactor } : { width: 1920, height: 1080 };
+  let screen = { width: 1920, height: 1080 };
+  await step(errors, 'monitor', async () => {
+    const monitor = await currentMonitor();
+    if (monitor) screen = { width: monitor.size.width / monitor.scaleFactor, height: monitor.size.height / monitor.scaleFactor };
+  });
   const target = position ? clampToScreen(position, size, screen) : defaultPosition(size, screen);
 
-  if (saved.fullscreen) await win.setFullscreen(false);
-  if (saved.maximized) await win.unmaximize();
-  await win.setMinSize(new LogicalSize(size.width, size.height));
-  await win.setMaxSize(new LogicalSize(size.width, size.height));
-  await win.setResizable(false);
-  await win.setDecorations(false);
-  await win.setShadow(false);
-  await win.setSize(new LogicalSize(size.width, size.height));
-  await win.setPosition(new LogicalPosition(target.x, target.y));
-  await win.setAlwaysOnTop(true);
-  await win.setSkipTaskbar(false);
+  if (saved.fullscreen) await step(errors, 'sair do fullscreen', () => win.setFullscreen(false));
+  if (saved.maximized) await step(errors, 'desmaximizar', () => win.unmaximize());
+  await step(errors, 'sem borda', () => win.setDecorations(false));
+  await step(errors, 'redimensionável', () => win.setResizable(false));
+  await step(errors, 'tamanho mínimo', () => win.setMinSize(new LogicalSize(size.width, size.height)));
+  await step(errors, 'tamanho máximo', () => win.setMaxSize(new LogicalSize(size.width, size.height)));
+  await step(errors, 'tamanho', () => win.setSize(new LogicalSize(size.width, size.height)));
+  await step(errors, 'posição', () => win.setPosition(new LogicalPosition(target.x, target.y)));
+  await step(errors, 'sempre no topo', () => win.setAlwaysOnTop(true));
+  await step(errors, 'sombra', () => win.setShadow(false));
+  return errors;
 }
 
 /** Change the widget format in place, keeping the top-left corner. */

@@ -47,7 +47,8 @@ export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConn
       try {
         const completed = await completeSpotifyAuthorization();
         if (!active) return;
-        if (completed || getSpotifyToken()) await refresh();
+        // With a stored token, start polling right away; a first refresh skipped while the window is hidden must not leave us disconnected.
+        if (completed || getSpotifyToken()) { setConnected(true); await refresh(); }
         else setConnected(false);
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : 'Falha na autenticação Spotify.');

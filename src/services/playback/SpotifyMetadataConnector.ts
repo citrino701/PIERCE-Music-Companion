@@ -6,7 +6,14 @@
 import { pickBestLyricsRecord } from '../lyrics/lrc';
 
 const CLIENT_ID = '22cbfb1b63b146b79892330d3838609f';
-const REDIRECT_URI = 'https://pierce-music-companion.hugoviajante.workers.dev/';
+const WEB_REDIRECT_URI = 'https://pierce-music-companion.hugoviajante.workers.dev/';
+/**
+ * Spotify only accepts https URLs or the loopback IP 127.0.0.1 (not "localhost"). The desktop app in dev runs on
+ * http://127.0.0.1:3000 so the login returns to the same origin (keeps the Tauri bridge and the saved token);
+ * every other origin keeps using the deployed site. Add http://127.0.0.1:3000/ to the app's Redirect URIs in the Spotify dashboard.
+ */
+export const spotifyRedirectUri = (): string =>
+  typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' ? `${window.location.origin}/` : WEB_REDIRECT_URI;
 const SCOPES = ['user-read-playback-state', 'user-read-currently-playing', 'user-modify-playback-state'];
 const TOKEN_KEY = 'pierce.spotify.token';
 const VERIFIER_KEY = 'pierce.spotify.pkce.verifier';
@@ -56,7 +63,7 @@ export function beginSpotifyAuthorization(): void {
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
       response_type: 'code',
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: spotifyRedirectUri(),
       code_challenge_method: 'S256',
       code_challenge: challenge,
       state,
@@ -83,7 +90,7 @@ export async function completeSpotifyAuthorization(): Promise<boolean> {
       client_id: CLIENT_ID,
       grant_type: 'authorization_code',
       code,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: spotifyRedirectUri(),
       code_verifier: verifier,
     }),
   });
@@ -92,7 +99,7 @@ export async function completeSpotifyAuthorization(): Promise<boolean> {
   localStorage.setItem(TOKEN_KEY, JSON.stringify({ ...token, expires_at: Date.now() + token.expires_in * 1000 }));
   localStorage.removeItem(VERIFIER_KEY);
   localStorage.removeItem(STATE_KEY);
-  window.history.replaceState({}, document.title, REDIRECT_URI);
+  window.history.replaceState({}, document.title, spotifyRedirectUri());
   return true;
 }
 
