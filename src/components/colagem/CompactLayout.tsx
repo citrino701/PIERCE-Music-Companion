@@ -15,6 +15,7 @@ interface Props {
   style: CompactStyle;
   elements: StageElements;
   lyricScale: number;
+  lyricOffsetMs: number;
   w: number;
   h: number;
   t: number;
@@ -43,7 +44,7 @@ const NOTES_ROW = 40;
  *  - reading: slim colour header, lyrics get almost the whole window.
  *  - stacked: title block + cover on top, then the lyrics, then a two-row dock.
  */
-export const CompactLayout: React.FC<Props> = ({ style, elements: el, lyricScale, w, h, t, pal, track, tracks, progressMs, isPlaying, activeLyric, lyricsText, plainWords, audioFeatures, titleOpacity, shuffleEnabled, onToggleShuffle, onTogglePlay, onSeek, onPrevious, onNext }) => {
+export const CompactLayout: React.FC<Props> = ({ style, elements: el, lyricScale, lyricOffsetMs, w, h, t, pal, track, tracks, progressMs, isPlaying, activeLyric, lyricsText, plainWords, audioFeatures, titleOpacity, shuffleEnabled, onToggleShuffle, onTogglePlay, onSeek, onPrevious, onNext }) => {
   const vars = { '--track-bg': pal.bg, '--track-a': pal.a, '--track-b': pal.b, '--track-deep': pal.deep, '--track-on-a': pal.onA, '--ink': INK } as React.CSSProperties;
   const [l1, l2] = splitTitle(track.title);
   const n = String(Math.max(0, tracks.findIndex((x) => x.id === track.id)) + 1).padStart(2, '0');
@@ -117,7 +118,7 @@ export const CompactLayout: React.FC<Props> = ({ style, elements: el, lyricScale
           box={{ left: w - 16 - 112, top: headerBottom + 10, width: 112, height: 64 }} />
       )}
 
-      <LyricStack lines={track.lyrics} active={activeLyric} progressMs={progressMs} plainText={lyricsText} rect={lyricRect} sizes={sizes} />
+      <LyricStack lines={track.lyrics} active={activeLyric} progressMs={progressMs + lyricOffsetMs} plainText={lyricsText} rect={lyricRect} sizes={sizes} />
 
       {el.notes && (
         <div style={{ position: 'absolute', left: 24, right: 24, bottom: 16 + dockH + 10, height: NOTES_ROW - 6, overflow: 'hidden' }}>

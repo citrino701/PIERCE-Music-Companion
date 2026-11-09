@@ -23,4 +23,6 @@ export interface StageViewProps {
   /** Elements the person switched on/off for this layout. */
   elements: StageElements;
   lyricScale: number;
+  /** How far (ms) lyrics run ahead of the reported position; the person tunes it in the menu or with [ and ]. */
+  lyricOffsetMs: number;
 }

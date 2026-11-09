@@ -11,11 +11,11 @@ import { beatInfo, formatTime, hash, lineIndexAt, wordTimings, type TimedWord } 
  * H · Respira — the current line is a poster of boxed letters; the sung word swells on the beat,
  * sung words shrink and fill, future words are outlines. The cover is just another box. (docs: handoff H)
  */
-export const RespiraView: React.FC<StageViewProps> = ({ track, tracks, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext }) => {
+export const RespiraView: React.FC<StageViewProps> = ({ track, tracks, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext, lyricOffsetMs }) => {
   const pal = useTrackPalette(track);
   const BG = pal.bg, BOX = pal.a;
   const [host, box] = useBox<HTMLDivElement>();
-  const t = useFrameTime(progressMs, isPlaying, 30);
+  const t = useFrameTime(progressMs, isPlaying, 30, lyricOffsetMs / 1000);
   const reduced = useReducedMotion();
   const lines = useTimedLines(track);
   const bpm = bpmOf(track.bpm);

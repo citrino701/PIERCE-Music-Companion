@@ -17,12 +17,12 @@ import { hasSpotifySession } from './services/playback/SpotifyMetadataConnector'
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { ReducedWidget } from './components/widget/ReducedWidget';
 import { InstallPrompt } from './components/InstallPrompt';
+import { LYRIC_OFFSET_DEFAULT_MS, LYRIC_OFFSET_KEY, clampLyricOffset, parseLyricOffset } from './services/colagem/layout';
 import { enterReduced, exitReduced, resizeReduced, startDrag, onWindowMoved, isTauri } from './services/widget/reducedWindow';
 import { isPipSupported, openPipWindow, resizePipWindow } from './services/widget/pipWindow';
 import { createKeepAlive, registerMediaSession, supportsAutoPip, updateMediaMetadata } from './services/widget/autoPip';
 import { WIDGET_STORAGE_KEY, parseWidgetPrefs, serializeWidgetPrefs, nextVariant, type WidgetPrefs, type WidgetVariant } from './services/widget/widgetLayout';
 import { parseLrc } from './services/lyrics/lrc';
-const LYRICS_OFFSET_MS = 250; // lyrics lead the audio a little: the position Spotify reports lags behind what is heard
 
 export default function App() {
   const [currentMode, setCurrentMode] = useState<ViewMode>('fullscreen');
@@ -99,6 +99,13 @@ export default function App() {
   },[spotifyConnected,currentTrack.id]);
 
   // The demo uses the same provider contract reserved for future integrations.
+  // Lyrics lead the position Spotify reports (it lags what is heard); tunable because the lag depends on device and network.
+  const [lyricOffsetMs, setLyricOffsetMs] = useState<number>(() => { try { return parseLyricOffset(localStorage.getItem(LYRIC_OFFSET_KEY)); } catch { return LYRIC_OFFSET_DEFAULT_MS; } });
+  const handleLyricOffsetChange = useCallback((ms: number) => {
+    const value = clampLyricOffset(ms);
+    setLyricOffsetMs(value);
+    try { localStorage.setItem(LYRIC_OFFSET_KEY, String(value)); } catch { /* storage may be blocked */ }
+  }, []);
   const volumeCommandAtRef = useRef(0);
   const volumeTimerRef = useRef<number | null>(null);
   const lastVolumeRef = useRef(0.8);
@@ -135,7 +142,7 @@ export default function App() {
   }, [spotifyConnected, isPlaying, currentTrack.durationMs]);
 
   // Derived state
-  const activeLyricIndex = findActiveLyricIndex(currentTrack.lyrics, progressMs + LYRICS_OFFSET_MS);
+  const activeLyricIndex = findActiveLyricIndex(currentTrack.lyrics, progressMs + lyricOffsetMs);
   const activeLyric = currentTrack.lyrics[activeLyricIndex];
   const activeChapterIndex = findActiveChapterIndex(currentTrack.chapters, progressMs);
   const activeChapter = currentTrack.chapters[activeChapterIndex];
@@ -396,6 +403,8 @@ export default function App() {
         onNext={handleNextTrack}
         onToggleMute={handleToggleMute}
         onVolumeChange={handleVolumeChange}
+        lyricOffsetMs={lyricOffsetMs}
+        onLyricOffsetChange={handleLyricOffsetChange}
       />
       {pipWindow && createPortal(
         <ReducedWidget

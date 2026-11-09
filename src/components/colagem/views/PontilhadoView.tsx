@@ -14,11 +14,11 @@ const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
  * L · Pontilhado — 1100 persistent dots on a canvas: the current word is a cloud of dots, they fly into the next word,
  * and between verses (or when paused) they assemble the cover. The mouse is a fan that blows them away.
  */
-export const PontilhadoView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext }) => {
+export const PontilhadoView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext, lyricOffsetMs }) => {
   const [host, box] = useBox<HTMLDivElement>();
   const reduced = useReducedMotion();
-  const now = useSmoothNow(progressMs, isPlaying);
-  const t = useFrameTime(progressMs, isPlaying, 10);
+  const now = useSmoothNow(progressMs, isPlaying, lyricOffsetMs / 1000);
+  const t = useFrameTime(progressMs, isPlaying, 10, lyricOffsetMs / 1000);
   const lines = useTimedLines(track);
   const hasLyrics = lines.some((l) => !l.gap);
   const bpm = bpmOf(track.bpm, 96);
