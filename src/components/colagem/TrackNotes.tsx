@@ -15,7 +15,8 @@ function load(id: string): Note[] {
 }
 
 /** Three tags: your own note nearest to now, then real track data (album/year, bpm/key). */
-export const TrackNotes: React.FC<{ track: TrackData; progressMs: number }> = ({ track, progressMs }) => {
+/** `compact` lays the three tags out in a wrapping row instead of their fixed spots in the full composition. */
+export const TrackNotes: React.FC<{ track: TrackData; progressMs: number; compact?: boolean }> = ({ track, progressMs, compact }) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
@@ -41,9 +42,10 @@ export const TrackNotes: React.FC<{ track: TrackData; progressMs: number }> = ({
   const info = [track.album, track.year].filter(Boolean).join(' · ');
   const tech = [track.bpm ? `${track.bpm} bpm` : '', track.key].filter(Boolean).join(' · ');
 
-  return (
+  const place = (left: number, top: number): React.CSSProperties => (compact ? { position: 'relative' } : { position: 'absolute', left, top });
+  const tags = (
     <>
-      <div style={{ position: 'absolute', left: 510, top: 508, display: 'flex', alignItems: 'center', gap: 6, transform: 'rotate(-2deg)' }}>
+      <div style={{ ...place(510, 508), display: 'flex', alignItems: 'center', gap: 6, transform: 'rotate(-2deg)' }}>
         {dot('var(--track-a)')}
         {adding ? (
           <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={60} aria-label="Escreva uma nota para este momento"
@@ -51,7 +53,7 @@ export const TrackNotes: React.FC<{ track: TrackData; progressMs: number }> = ({
               if (e.key === 'Enter') save();
               if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelled.current = true; setDraft(''); setAdding(false); }
             }} onBlur={save}
-            style={{ ...box, background: '#fff', color: 'var(--ink)', border: 'none', outline: '2px solid var(--ink)', width: 280 }} />
+            style={{ ...box, background: '#fff', color: 'var(--ink)', border: 'none', outline: '2px solid var(--ink)', width: compact ? 220 : 280 }} />
         ) : (
           <button type="button" onClick={() => setAdding(true)} style={{ ...box, background: '#fff', color: 'var(--track-deep)', border: 'none', cursor: 'pointer', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {nearest ? `@você · ${formatClock(nearest.ms)} — ${nearest.text}` : '+ anote este momento'}
@@ -59,17 +61,18 @@ export const TrackNotes: React.FC<{ track: TrackData; progressMs: number }> = ({
         )}
       </div>
       {info && (
-        <div style={{ position: 'absolute', left: 830, top: 524, display: 'flex', alignItems: 'center', gap: 6, transform: 'rotate(1.5deg)' }}>
+        <div style={{ ...place(830, 524), display: 'flex', alignItems: 'center', gap: 6, transform: 'rotate(1.5deg)' }}>
           {dot('var(--ink)')}
           <span style={{ ...box, background: 'var(--track-a)', color: 'var(--track-on-a)', maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info}</span>
         </div>
       )}
       {tech && (
-        <div style={{ position: 'absolute', left: 1030, top: 498, display: 'flex', alignItems: 'center', gap: 6, transform: 'rotate(-1deg)' }}>
+        <div style={{ ...place(1030, 498), display: 'flex', alignItems: 'center', gap: 6, transform: 'rotate(-1deg)' }}>
           {dot('var(--track-b)')}
           <span style={{ ...box, background: 'var(--track-b)', color: '#fff' }}>{tech}</span>
         </div>
       )}
     </>
   );
+  return compact ? <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px', maxWidth: '100%' }}>{tags}</div> : tags;
 };

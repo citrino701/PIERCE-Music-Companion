@@ -46,14 +46,14 @@ async function loadCover(src: string): Promise<Cover | null> {
   }
 }
 
-interface Props { t: number; track: { id: string; coverImage: string }; progress: number; onset: boolean; pal: TrackPalette }
+interface Props { t: number; track: { id: string; coverImage: string }; progress: number; onset: boolean; pal: TrackPalette; /** Position/size override (narrow layouts); the picture is cropped like object-fit: cover. */ box?: React.CSSProperties }
 
 /**
  * The cover photo, resolving over the length of the song: coarse halftone and heavy noise at the start,
  * finer dither in the middle, the photo with a light grain at the end. Falls back to the ASCII picture
  * when there is no usable cover.
  */
-export const LiveCover: React.FC<Props> = ({ t, track, progress, onset, pal }) => {
+export const LiveCover: React.FC<Props> = ({ t, track, progress, onset, pal, box }) => {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [cover, setCover] = useState<Cover | null | undefined>(undefined);
   const seed = useMemo(() => hashString(track.id) % 7, [track.id]);
@@ -110,9 +110,9 @@ export const LiveCover: React.FC<Props> = ({ t, track, progress, onset, pal }) =
   }, [t, cover, progress, onset, pal]);
 
   return (
-    <div style={{ position: 'absolute', left: 40, top: 356, width: W, height: H, background: 'var(--track-bg)', border: '2px solid var(--ink)', boxSizing: 'border-box', overflow: 'hidden', transition: 'background .8s' }}>
+    <div style={{ position: 'absolute', left: 40, top: 356, width: W, height: H, ...box, background: 'var(--track-bg)', border: '2px solid var(--ink)', boxSizing: 'border-box', overflow: 'hidden', transition: 'background .8s' }}>
       {cover ? (
-        <canvas ref={canvas} role="img" aria-label="Capa do álbum que se revela ao longo da música" style={{ position: 'absolute', left: -2, top: -2, width: W, height: H }} />
+        <canvas ref={canvas} role="img" aria-label="Capa do álbum que se revela ao longo da música" style={{ position: 'absolute', left: -2, top: -2, width: box ? 'calc(100% + 4px)' : W, height: box ? 'calc(100% + 4px)' : H, objectFit: 'cover' }} />
       ) : (
         <pre aria-label="Imagem animada em ASCII que muda a cada faixa" style={{ position: 'absolute', left: 2, top: 4, margin: 0, font: "12px/13px 'DM Mono', monospace", color: 'var(--track-deep)', whiteSpace: 'pre', transition: 'color .8s' }}>{liveCover(t, seed)}</pre>
       )}
