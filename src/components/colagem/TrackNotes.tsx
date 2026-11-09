@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { TrackData } from '../../types';
 import { formatClock } from '../../services/colagem/colagem';
 
@@ -19,11 +19,13 @@ export const TrackNotes: React.FC<{ track: TrackData; progressMs: number }> = ({
   const [notes, setNotes] = useState<Note[]>([]);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
+  const cancelled = useRef(false);
   useEffect(() => { setNotes(load(track.id)); setAdding(false); }, [track.id]);
 
   const nearest = notes.length ? notes.reduce((best, n) => (Math.abs(n.ms - progressMs) < Math.abs(best.ms - progressMs) ? n : best)) : undefined;
 
   const save = () => {
+    if (cancelled.current) { cancelled.current = false; return; }
     const text = draft.trim();
     if (text) {
       const next = [...notes, { ms: Math.round(progressMs), text }];
@@ -45,7 +47,10 @@ export const TrackNotes: React.FC<{ track: TrackData; progressMs: number }> = ({
         {dot('var(--track-a)')}
         {adding ? (
           <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={60} aria-label="Escreva uma nota para este momento"
-            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setDraft(''); setAdding(false); } }} onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelled.current = true; setDraft(''); setAdding(false); }
+            }} onBlur={save}
             style={{ ...box, background: '#fff', color: 'var(--ink)', border: 'none', outline: '2px solid var(--ink)', width: 280 }} />
         ) : (
           <button type="button" onClick={() => setAdding(true)} style={{ ...box, background: '#fff', color: 'var(--track-deep)', border: 'none', cursor: 'pointer', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

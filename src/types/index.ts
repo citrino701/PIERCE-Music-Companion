@@ -1,4 +1,4 @@
-export type ViewMode = 'compact' | 'disc' | 'fullscreen' | 'zen';
+export type ViewMode = 'compact' | 'disc' | 'fullscreen';
 
 export interface LyricLine {
   id: string;

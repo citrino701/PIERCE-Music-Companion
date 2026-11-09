@@ -11,12 +11,11 @@ import {
 import { CompactMode } from './components/CompactMode';
 import { DiscMode } from './components/DiscMode';
 import { FullscreenMode } from './components/FullscreenMode';
-import { ZenMode } from './components/ZenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
 import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
-import { LayoutGrid, Disc3, Monitor, Wind, Columns3 } from 'lucide-react';
+import { LayoutGrid, Disc3, Monitor, Columns3 } from 'lucide-react';
 import { parseLrc } from './services/lyrics/lrc';
 const LYRICS_OFFSET_MS = 0;
 
@@ -221,10 +220,6 @@ export default function App() {
         setIsBoardView(false);
         setCurrentMode('fullscreen');
       }
-      if (e.key === '4') {
-        setIsBoardView(false);
-        setCurrentMode('zen');
-      }
       if (e.code === 'Space') {
         e.preventDefault();
         handleTogglePlay();
@@ -243,7 +238,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleTogglePlay, handleSeek, progressMs]);
 
-  const isImmersive = !isBoardView && (currentMode === 'fullscreen' || currentMode === 'zen');
+  const isImmersive = !isBoardView && currentMode === 'fullscreen';
 
   return (
     <main className={`min-h-screen w-full concrete-canvas text-[#121114] flex flex-col justify-between relative overflow-x-hidden selection:bg-[#002aff] selection:text-white pierce-app-with-sidebar`}>
@@ -349,22 +344,6 @@ export default function App() {
             >
               <Monitor className="w-3.5 h-3.5" />
               <span>03. Fullscreen</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsBoardView(false);
-                setCurrentMode('zen');
-              }}
-              className={`px-2.5 py-1 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
-                !isBoardView && currentMode === 'zen'
-                  ? 'bg-black text-white font-bold'
-                  : 'text-black/60 hover:text-black'
-              }`}
-            >
-              <Wind className="w-3.5 h-3.5" />
-              <span>04. Zen</span>
             </button>
           </div>
 
@@ -522,46 +501,12 @@ export default function App() {
                 </div>
               </div>
             </div>
-
-            {/* 05. Zen preview */}
-            <div className="pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-mono text-black/70 font-medium">04. Zen</span>
-                <div className="h-px bg-black/20 w-16" />
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsBoardView(false);
-                  setCurrentMode('zen');
-                }}
-                className="relative w-full min-h-[190px] overflow-hidden rounded-2xl border border-black/10 bg-[#f7f5f0] p-8 text-left shadow-lg transition-transform hover:-translate-y-1"
-              >
-                <div
-                  className="absolute -left-10 -top-24 h-72 w-72 rounded-full blur-[70px] opacity-35"
-                  style={{ backgroundColor: currentTrack.accentColor }}
-                />
-                <div
-                  className="absolute -right-8 -bottom-32 h-80 w-80 rounded-full blur-[80px] opacity-25"
-                  style={{ backgroundColor: currentTrack.secondaryColor }}
-                />
-                <div className="relative z-10 flex min-h-[125px] flex-col justify-between">
-                  <span className="text-[10px] font-mono tracking-[0.2em] text-black/45">PIERCE / 04</span>
-                  <div>
-                    <p className="max-w-3xl font-['Plus_Jakarta_Sans',sans-serif] text-2xl font-medium tracking-tight text-black sm:text-3xl">
-                      {activeLyric?.text || 'O silêncio antes do compasso.'}
-                    </p>
-                    <p className="mt-3 text-xs font-mono text-black/45">ZEN EXPERIENCE · ABRIR MODO</p>
-                  </div>
-                </div>
-              </button>
-            </div>
           </div>
         ) : (
           /* 2. FOCUSED ACTIVE MODE */
           <div className="w-full flex flex-col items-center">
             {/* Mode section indicator on desktop */}
-            {currentMode !== 'fullscreen' && currentMode !== 'zen' && (
+            {currentMode !== 'fullscreen' && (
               <div className="flex items-center gap-2 mb-4 self-center max-w-5xl w-full px-2">
                 <span className="text-xs font-mono text-black/70 font-medium">
                   {currentMode === 'compact' && '01. Compacto'}
@@ -627,23 +572,6 @@ export default function App() {
                 onPrevious={handlePreviousTrack}
                 onNext={handleNextTrack}
                 onToggleMute={handleToggleMute}
-              />
-            )}
-
-            {currentMode === 'zen' && (
-              <ZenMode
-                track={currentTrack}
-                progressMs={progressMs}
-                isPlaying={isPlaying}
-                activeLyric={activeLyric}
-                activeChapter={activeChapter}
-                audioFeatures={audioFeatures}
-                currentMode={currentMode}
-                onSelectMode={setCurrentMode}
-                onTogglePlay={handleTogglePlay}
-                onSeek={handleSeek}
-                onPrevious={handlePreviousTrack}
-                onNext={handleNextTrack}
               />
             )}
           </div>

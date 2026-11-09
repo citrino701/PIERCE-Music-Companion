@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewMode } from '../types';
-import { Minimize2, Disc3, Monitor, Wind } from 'lucide-react';
+import { Minimize2, Disc3, Monitor } from 'lucide-react';
 
 interface NavigationRailProps {
   currentMode: ViewMode;
@@ -22,7 +22,6 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
     { id: 'compact', label: 'Compacto', number: '01', icon: <Minimize2 className="w-3 h-3" /> },
     { id: 'disc', label: 'Disco', number: '02', icon: <Disc3 className="w-3 h-3" /> },
     { id: 'fullscreen', label: 'Fullscreen', number: '03', icon: <Monitor className="w-3 h-3" /> },
-    { id: 'zen', label: 'Zen', number: '04', icon: <Wind className="w-3 h-3" /> },
   ];
 
   const isDark = theme === 'dark';

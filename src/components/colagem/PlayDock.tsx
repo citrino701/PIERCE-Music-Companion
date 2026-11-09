@@ -58,7 +58,12 @@ export const PlayDock: React.FC<Props> = ({ track, progressMs, isPlaying, audioF
         <div
           ref={barRef} role="slider" tabIndex={0} aria-label="Progresso da faixa" aria-valuemin={0} aria-valuemax={duration} aria-valuenow={Math.round(progressMs)} aria-valuetext={formatClock(progressMs)}
           onClick={(e) => seekFromPointer(e.clientX)}
-          onKeyDown={(e) => { if (e.key === 'ArrowRight') onSeek(Math.min(duration, progressMs + 5000)); if (e.key === 'ArrowLeft') onSeek(Math.max(0, progressMs - 5000)); }}
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            e.preventDefault();
+            e.stopPropagation(); // the global shortcut would seek a second time
+            onSeek(e.key === 'ArrowRight' ? Math.min(duration, progressMs + 5000) : Math.max(0, progressMs - 5000));
+          }}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 22, cursor: 'pointer' }}
         >
           {Array.from({ length: DOTS }, (_, i) => {

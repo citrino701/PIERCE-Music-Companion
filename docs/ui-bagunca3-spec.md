@@ -4,7 +4,7 @@ Escopo: redesenhar a interface do PIERCE Music Companion (React 19 + TypeScript 
 Referência visual: tela "Bagunça 3 (cor por faixa)" do canvas "PiErCe · antes e depois" (link privado do autor). Medidas saem dela (base 1280×760; usar % da área do app).
 
 ## 0. Modos
-O modo Expandido deixou de existir: o **Fullscreen** é esta UI, ocupando a janela inteira (a composição de 1280×760 é escalada e centralizada; grão, ASCII e bolinhas continuam até as bordas). O modo reduzido (player flutuante, normal e disco) vem em outro PR.
+Os modos Expandido e Zen deixaram de existir: o **Fullscreen** é esta UI, ocupando a janela inteira (a composição de 1280×760 é escalada e centralizada; grão, ASCII e bolinhas continuam até as bordas). O modo reduzido (player flutuante, normal e disco) vem em outro PR.
 
 ## 1. Princípio
 Bagunça nas bordas, calma no centro. A letra e o player são sempre legíveis. Textura (ASCII, bolinhas, título gigante) fica atrás ou nas margens e nunca cobre a letra.

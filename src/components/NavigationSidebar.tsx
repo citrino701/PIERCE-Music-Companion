@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewMode } from '../types';
-import { LayoutGrid, Disc3, Monitor, Wind } from 'lucide-react';
+import { LayoutGrid, Disc3, Monitor } from 'lucide-react';
 
 interface NavigationSidebarProps {
   currentMode: ViewMode;
@@ -11,7 +11,6 @@ const MODES: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
   { id: 'compact', label: '01. Compacto', icon: <LayoutGrid className="w-4 h-4" /> },
   { id: 'disc', label: '02. Disco', icon: <Disc3 className="w-4 h-4" /> },
   { id: 'fullscreen', label: '03. Fullscreen', icon: <Monitor className="w-4 h-4" /> },
-  { id: 'zen', label: '04. Zen', icon: <Wind className="w-4 h-4" /> },
 ];
 
 export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({ currentMode, onSelectMode }) => (
