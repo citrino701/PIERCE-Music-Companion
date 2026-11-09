@@ -28,9 +28,9 @@ const Cell = React.memo(({ c, ch, kind, img, S, onEnter, onLeave, onClick }: Cel
  * K · Caça-letras — all lyrics scattered over a grid of loose letters: the future is scrambled, the sung word is
  * revealed letter by letter with a little hand pointing, sung cells become windows onto a huge ghost cover.
  */
-export const CacaView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext }) => {
+export const CacaView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext, lyricOffsetMs }) => {
   const [host, box] = useBox<HTMLDivElement>();
-  const t = useFrameTime(progressMs, isPlaying, 30);
+  const t = useFrameTime(progressMs, isPlaying, 30, lyricOffsetMs / 1000);
   const reduced = useReducedMotion();
   const synced = useTimedLines(track);
   const hasLyrics = synced.some((l) => !l.gap);

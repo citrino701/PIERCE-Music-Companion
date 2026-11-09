@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SlidersHorizontal } from 'lucide-react';
 import {
-  ELEMENT_LABELS, ELEMENT_PRESETS, LAYOUT_LABELS, LYRIC_SCALE_MAX, LYRIC_SCALE_MIN,
+  ELEMENT_LABELS, ELEMENT_PRESETS, LYRIC_OFFSET_DEFAULT_MS, LYRIC_OFFSET_MAX_MS, LYRIC_OFFSET_MIN_MS, LAYOUT_LABELS, LYRIC_SCALE_MAX, LYRIC_SCALE_MIN,
   elementsFor, withElement, withPreset,
   type LayoutId, type StageElements, type ViewPrefs,
 } from '../../services/colagem/layout';
@@ -13,6 +13,8 @@ interface Props {
   /** Layout currently on screen (auto already resolved). */
   layout: LayoutId;
   onChange: (next: ViewPrefs) => void;
+  lyricOffsetMs: number;
+  onLyricOffsetChange: (ms: number) => void;
 }
 
 const seg = (on: boolean): React.CSSProperties => ({
@@ -21,7 +23,7 @@ const seg = (on: boolean): React.CSSProperties => ({
 });
 
 /** Gear button + panel: choose the visualisation, the layout, which elements show, and the lyric size. */
-export const ViewMenu: React.FC<Props> = ({ prefs, layout, onChange }) => {
+export const ViewMenu: React.FC<Props> = ({ prefs, layout, onChange, lyricOffsetMs, onLyricOffsetChange }) => {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const els = elementsFor(layout, prefs);
@@ -83,6 +85,16 @@ export const ViewMenu: React.FC<Props> = ({ prefs, layout, onChange }) => {
                   {ELEMENT_LABELS[k]}
                 </label>
               ))}
+            </>
+          ))}
+          {group(`Sincronia da letra · ${lyricOffsetMs > 0 ? '+' : ''}${lyricOffsetMs} ms`, (
+            <>
+              <input type="range" aria-label="Sincronia da letra" min={LYRIC_OFFSET_MIN_MS} max={LYRIC_OFFSET_MAX_MS} step={50} value={lyricOffsetMs}
+                onChange={(e) => onLyricOffsetChange(Number(e.target.value))} style={{ width: '100%' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, marginTop: 4 }}>
+                <span>Letra atrasada? aumente. Atalhos: [ e ]</span>
+                <button type="button" style={seg(false)} onClick={() => onLyricOffsetChange(LYRIC_OFFSET_DEFAULT_MS)}>Padrão</button>
+              </div>
             </>
           ))}
           {group(`Tamanho da letra · ${Math.round(prefs.lyricScale * 100)}%`, (

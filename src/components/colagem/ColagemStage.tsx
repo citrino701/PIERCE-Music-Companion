@@ -17,7 +17,7 @@ import { WordDots } from './WordDots';
  * "Bagunça 3" filling its container. The 1280x760 composition is scaled to fit and centred; the texture
  * layers (grain, ASCII, dots) keep going into whatever margin is left so the edges are never empty.
  */
-export const ColagemStage: React.FC<StageViewProps> = ({ track, tracks, progressMs, isPlaying, activeLyric, lyricsText, audioFeatures, titleOpacity = 0.8, shuffleEnabled, onToggleShuffle, onTogglePlay, onSeek, onPrevious, onNext, layout, elements: elementsProp, lyricScale }) => {
+export const ColagemStage: React.FC<StageViewProps> = ({ track, tracks, progressMs, isPlaying, activeLyric, lyricsText, audioFeatures, titleOpacity = 0.8, shuffleEnabled, onToggleShuffle, onTogglePlay, onSeek, onPrevious, onNext, layout, elements: elementsProp, lyricScale, lyricOffsetMs }) => {
   const pal = useTrackPalette(track);
   const t = useStageClock(isPlaying);
   const [isRepeat, setRepeat] = useState(false);
@@ -51,7 +51,7 @@ export const ColagemStage: React.FC<StageViewProps> = ({ track, tracks, progress
   if (layout !== 'full') {
     return (
       <div ref={wrap} data-testid="colagem-stage" className="absolute inset-0 select-none overflow-hidden">
-        <CompactLayout style={layout} elements={el} lyricScale={lyricScale} w={cw} h={ch} t={t} pal={pal} track={track} tracks={tracks} progressMs={progressMs} isPlaying={isPlaying}
+        <CompactLayout style={layout} elements={el} lyricScale={lyricScale} lyricOffsetMs={lyricOffsetMs} w={cw} h={ch} t={t} pal={pal} track={track} tracks={tracks} progressMs={progressMs} isPlaying={isPlaying}
           activeLyric={activeLyric} lyricsText={lyricsText} plainWords={plainWords} audioFeatures={audioFeatures} titleOpacity={titleOpacity} shuffleEnabled={shuffleEnabled}
           onToggleShuffle={onToggleShuffle} onTogglePlay={onTogglePlay} onSeek={onSeek} onPrevious={onPrevious} onNext={onNext} />
       </div>
@@ -84,7 +84,7 @@ export const ColagemStage: React.FC<StageViewProps> = ({ track, tracks, progress
 
           {el.cover && <LiveCover t={t} track={track} progress={progress} onset={isPlaying && audioFeatures.onset} pal={pal} />}
 
-          <LyricStack lines={track.lyrics} active={activeLyric} progressMs={progressMs} plainText={lyricsText} sizes={lyricSizes('full', STAGE_W, lyricScale)} />
+          <LyricStack lines={track.lyrics} active={activeLyric} progressMs={progressMs + lyricOffsetMs} plainText={lyricsText} sizes={lyricSizes('full', STAGE_W, lyricScale)} />
           {el.notes && <TrackNotes track={track} progressMs={progressMs} />}
 
           <div aria-hidden="true" style={{ position: 'absolute', left: 24, top: 336, width: 120, height: 30, background: 'rgba(255,225,77,0.8)', transform: 'rotate(-7deg)' }} />

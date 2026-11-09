@@ -19,8 +19,8 @@ export function useSmoothNow(progressMs: number, isPlaying: boolean, lead = LYRI
 }
 
 /** Same clock as React state, re-rendered at most `fps` times a second while playing. */
-export function useFrameTime(progressMs: number, isPlaying: boolean, fps = 30): number {
-  const now = useSmoothNow(progressMs, isPlaying);
+export function useFrameTime(progressMs: number, isPlaying: boolean, fps = 30, lead = LYRIC_LEAD_S): number {
+  const now = useSmoothNow(progressMs, isPlaying, lead);
   const [t, setT] = useState(() => now());
   useEffect(() => {
     setT(now());

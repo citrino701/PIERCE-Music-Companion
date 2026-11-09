@@ -40,6 +40,8 @@ interface FullscreenModeProps {
   onNext: () => void;
   onToggleMute: () => void;
   onVolumeChange: (volume: number) => void;
+  lyricOffsetMs: number;
+  onLyricOffsetChange: (ms: number) => void;
 }
 
 /** Fullscreen = "Bagunça 3" (docs/ui-bagunca3-spec.md) over the whole window, beside the navigation rail. */
@@ -60,6 +62,8 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   volume,
   onToggleMute,
   onVolumeChange,
+  lyricOffsetMs,
+  onLyricOffsetChange,
 }) => {
   const [prefs, setPrefs] = useState<ViewPrefs>(loadPrefs);
   const [box, setBox] = useState({ w: 1280, h: 760 });
@@ -82,6 +86,21 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 
   const layout = resolveLayout(box.w, box.h, prefs);
   const View = getStageView(prefs.viewId).Component;
+
+  const offsetRef = useRef({ lyricOffsetMs, onLyricOffsetChange });
+  offsetRef.current = { lyricOffsetMs, onLyricOffsetChange };
+  useEffect(() => {
+    // [ = letra mais cedo, ] = letra mais tarde (±100 ms)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || (e.key !== '[' && e.key !== ']')) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')) return;
+      const { lyricOffsetMs: cur, onLyricOffsetChange: change } = offsetRef.current;
+      change(cur + (e.key === ']' ? 100 : -100));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -115,8 +134,9 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
         compactStyle={prefs.compactStyle}
         elements={elementsFor(layout, prefs)}
         lyricScale={prefs.lyricScale}
+        lyricOffsetMs={lyricOffsetMs}
       />
-      <ViewMenu prefs={prefs} layout={layout} onChange={setPrefs} />
+      <ViewMenu prefs={prefs} layout={layout} onChange={setPrefs} lyricOffsetMs={lyricOffsetMs} onLyricOffsetChange={onLyricOffsetChange} />
       <VolumeControl volume={volume} onChange={onVolumeChange} onToggleMute={onToggleMute} />
     </div>
   );

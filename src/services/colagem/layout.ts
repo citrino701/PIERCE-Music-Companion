@@ -58,6 +58,16 @@ export interface ViewPrefs {
 
 export const DEFAULT_VIEW_PREFS: ViewPrefs = { viewId: 'colagem', layout: 'auto', compactStyle: 'reading', elements: {}, lyricScale: 1 };
 export const VIEW_STORAGE_KEY = 'pierce:view';
+export const LYRIC_OFFSET_KEY = 'pierce:lyricOffset';
+export const LYRIC_OFFSET_DEFAULT_MS = 700;
+export const LYRIC_OFFSET_MIN_MS = -1000;
+export const LYRIC_OFFSET_MAX_MS = 3000;
+export const clampLyricOffset = (ms: number): number => Math.min(LYRIC_OFFSET_MAX_MS, Math.max(LYRIC_OFFSET_MIN_MS, Math.round(Number.isFinite(ms) ? ms : LYRIC_OFFSET_DEFAULT_MS)));
+export function parseLyricOffset(raw: string | null | undefined): number {
+  if (raw == null || raw === '') return LYRIC_OFFSET_DEFAULT_MS;
+  const n = Number(raw);
+  return Number.isFinite(n) ? clampLyricOffset(n) : LYRIC_OFFSET_DEFAULT_MS;
+}
 export const LYRIC_SCALE_MIN = 0.8;
 export const LYRIC_SCALE_MAX = 1.4;
 

@@ -68,3 +68,12 @@ test('layoutDotsCompact stays between header and dock and is deterministic', () 
   for (const d of a) { assert.ok(d.y >= 90 && d.y <= 730 - 90, `y=${d.y}`); assert.ok(d.x >= 0 && d.x <= 663); }
   assert.notDeepEqual(a, layoutDotsCompact('t2', ['one'], 663, 730, 90, 90));
 });
+
+import { LYRIC_OFFSET_DEFAULT_MS, clampLyricOffset, parseLyricOffset } from './layout.ts';
+test('lyric offset: default, clamping and parsing', () => {
+  assert.equal(parseLyricOffset(null), LYRIC_OFFSET_DEFAULT_MS);
+  assert.equal(parseLyricOffset('abc'), LYRIC_OFFSET_DEFAULT_MS);
+  assert.equal(parseLyricOffset('300'), 300);
+  assert.equal(clampLyricOffset(99999), 3000);
+  assert.equal(clampLyricOffset(-5000), -1000);
+});
