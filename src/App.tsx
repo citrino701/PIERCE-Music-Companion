@@ -15,6 +15,7 @@ import { NavigationSidebar } from './components/NavigationSidebar';
 import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { ReducedWidget } from './components/widget/ReducedWidget';
+import { InstallPrompt } from './components/InstallPrompt';
 import { enterReduced, exitReduced, resizeReduced, startDrag, onWindowMoved, isTauri } from './services/widget/reducedWindow';
 import { isPipSupported, openPipWindow, resizePipWindow } from './services/widget/pipWindow';
 import { WIDGET_STORAGE_KEY, parseWidgetPrefs, serializeWidgetPrefs, nextVariant, type WidgetPrefs, type WidgetVariant } from './services/widget/widgetLayout';
@@ -318,6 +319,7 @@ export default function App() {
   ) : (
     <main className="min-h-screen w-full concrete-canvas text-[#121114] relative overflow-hidden selection:bg-[#002aff] selection:text-white pierce-app-with-sidebar">
       <NavigationSidebar currentMode={pipWindow ? 'reduced' : currentMode} onSelectMode={selectMode} />
+      <InstallPrompt />
       {spotifyControlError && <div className="fixed top-16 right-5 z-[70] max-w-sm rounded-lg bg-black text-white px-4 py-3 text-xs shadow-xl">{spotifyControlError}</div>}
       <FullscreenMode
         track={currentTrack}
