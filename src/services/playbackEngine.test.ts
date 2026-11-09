@@ -58,7 +58,6 @@ test('computeSimulatedAudioFeatures returns low values when stopped and dynamic 
 });
 
 test('getNextMode cycles properly through the modes', () => {
-  assert.equal(getNextMode('compact'), 'disc');
-  assert.equal(getNextMode('disc'), 'fullscreen');
-  assert.equal(getNextMode('fullscreen'), 'compact');
+  assert.equal(getNextMode('reduced'), 'fullscreen');
+  assert.equal(getNextMode('fullscreen'), 'reduced');
 });

@@ -54,7 +54,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
       // Escape inside the note editor (or any text field) only cancels that edit.
       const target = e.target as HTMLElement | null;
       if (target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')) return;
-      onSelectMode('compact');
+      onSelectMode('reduced');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

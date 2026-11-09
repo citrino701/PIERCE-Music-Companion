@@ -1,4 +1,5 @@
-export type ViewMode = 'compact' | 'disc' | 'fullscreen';
+/** Only two modes remain: the full "Bagunça 3" screen and the floating widget (normal / disco / mini formats). */
+export type ViewMode = 'reduced' | 'fullscreen';
 
 export interface LyricLine {
   id: string;

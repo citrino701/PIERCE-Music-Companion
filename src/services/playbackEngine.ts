@@ -98,7 +98,7 @@ export function computeSimulatedAudioFeatures(progressMs: number, bpm: number, i
  * Cycle through visual modes
  */
 export function getNextMode(currentMode: ViewMode): ViewMode {
-  const modes: ViewMode[] = ['compact', 'disc', 'fullscreen'];
+  const modes: ViewMode[] = ['reduced', 'fullscreen'];
   const currentIndex = modes.indexOf(currentMode);
   return modes[(currentIndex + 1) % modes.length];
 }
