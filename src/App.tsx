@@ -22,7 +22,7 @@ import { isPipSupported, openPipWindow, resizePipWindow } from './services/widge
 import { createKeepAlive, registerMediaSession, supportsAutoPip, updateMediaMetadata } from './services/widget/autoPip';
 import { WIDGET_STORAGE_KEY, parseWidgetPrefs, serializeWidgetPrefs, nextVariant, type WidgetPrefs, type WidgetVariant } from './services/widget/widgetLayout';
 import { parseLrc } from './services/lyrics/lrc';
-const LYRICS_OFFSET_MS = 0;
+const LYRICS_OFFSET_MS = 250; // lyrics lead the audio a little: the position Spotify reports lags behind what is heard
 
 export default function App() {
   const [currentMode, setCurrentMode] = useState<ViewMode>('fullscreen');
@@ -91,8 +91,8 @@ export default function App() {
     let cancelled = false; const trackId=currentTrack.id; setLyricsText(null);
     void fetchTrackLyrics(currentTrack).then(record=>{
       if(cancelled)return;
-      setLyricsText(record?.plainLyrics??record?.syncedLyrics?.replace(/\[\d{2}:\d{2}\.\d{2}\]\s*/g,'')??(record?.instrumental?'Faixa instrumental.':null));
-      const lines=parseLrc(record?.syncedLyrics,currentTrack.durationMs);
+      setLyricsText((record?.plainLyrics??record?.syncedLyrics?.replace(/\[\d{2}:\d{2}\.\d{2}\]\s*/g,'')??(record?.instrumental?'Faixa instrumental.':null))?.normalize('NFC')??null);
+      const lines=parseLrc(record?.syncedLyrics,currentTrack.durationMs,`${currentTrack.title} ${currentTrack.artist}`);
       setCurrentTrack(previous=>previous.id===trackId?{...previous,lyrics:lines}:previous);
     }).catch(()=>{if(!cancelled)setLyricsText(null);});
     return()=>{cancelled=true;};
