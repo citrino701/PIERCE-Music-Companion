@@ -13,6 +13,7 @@ import { FullscreenMode } from './components/FullscreenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
 import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
+import { hasSpotifySession } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { ReducedWidget } from './components/widget/ReducedWidget';
 import { InstallPrompt } from './components/InstallPrompt';
@@ -33,7 +34,8 @@ export default function App() {
   widgetPrefsRef.current = widgetPrefs;
   const [currentTrack, setCurrentTrack] = useState<TrackData>(TRACK_CATALOG[0]);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [spotifyConnected, setSpotifyConnected] = useState(false);
+  // A saved Spotify session means "real mode" from the first render; the demo catalogue must never take over while logged in.
+  const [spotifyConnected, setSpotifyConnected] = useState<boolean>(() => { try { return hasSpotifySession(); } catch { return false; } });
   const [lyricsText, setLyricsText] = useState<string | null>(null);
   const [spotifyControlError, setSpotifyControlError] = useState('');
   const [spotifyShuffle, setSpotifyShuffle] = useState(false);

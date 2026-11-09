@@ -21,6 +21,8 @@ export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConn
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const refreshInFlight = useRef(false);
+  const onDisconnectRef = useRef(onDisconnect);
+  onDisconnectRef.current = onDisconnect; // ref: an inline callback must not re-create refresh() on every render
 
   const refresh = useCallback(async () => {
     // No visibility guard: with the widget in its own window the main page is "hidden" but must keep syncing.
@@ -37,7 +39,8 @@ export function SpotifyConnectionPanel({ onSnapshot, onDisconnect }: SpotifyConn
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível consultar o Spotify.');
-      if (!hasSpotifySession()) setConnected(false);
+      // Only a lost session counts as a disconnect; a failed request (network, 5xx) keeps the connection and retries in 2 s.
+      if (!hasSpotifySession()) { setConnected(false); onDisconnectRef.current?.(); }
     } finally {
       refreshInFlight.current = false;
     }
