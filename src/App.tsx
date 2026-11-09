@@ -12,7 +12,7 @@ import {
 import { FullscreenMode } from './components/FullscreenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
-import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
+import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, setSpotifyVolume, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
 import { hasSpotifySession } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { ReducedWidget } from './components/widget/ReducedWidget';
@@ -80,6 +80,8 @@ export default function App() {
       }).catch(()=>setCurrentTrack(current=>current.id===spotifyTrackId?{...current,genres:[]}:current));
     }
     setProgressMs(snapshot.progress_ms ?? 0);
+    const devicePercent = snapshot.device?.volume_percent;
+    if (typeof devicePercent === 'number' && Date.now() - volumeCommandAtRef.current > 2500) setVolume(devicePercent / 100);
     // Evita que um snapshot iniciado antes do clique reverta a resposta visual otimista.
     if (Date.now() - playbackCommandAtRef.current > 2500) setIsPlaying(snapshot.is_playing);
   }, []);
@@ -97,6 +99,9 @@ export default function App() {
   },[spotifyConnected,currentTrack.id]);
 
   // The demo uses the same provider contract reserved for future integrations.
+  const volumeCommandAtRef = useRef(0);
+  const volumeTimerRef = useRef<number | null>(null);
+  const lastVolumeRef = useRef(0.8);
   const playbackProviderRef = useRef<DemoPlaybackProvider | null>(null);
   if (!playbackProviderRef.current) {
     playbackProviderRef.current = new DemoPlaybackProvider(currentTrack, 102000, true);
@@ -205,10 +210,24 @@ export default function App() {
     setSpotifyShuffle(next);
   }, [spotifyConnected, spotifyShuffle]);
 
+  const handleVolumeChange = useCallback((next: number) => {
+    const value = Math.min(1, Math.max(0, next));
+    setVolume(value);
+    if (spotifyConnected) {
+      volumeCommandAtRef.current = Date.now();
+      if (volumeTimerRef.current) window.clearTimeout(volumeTimerRef.current);
+      // The slider fires many times a second; Spotify only needs the last value.
+      volumeTimerRef.current = window.setTimeout(() => {
+        void setSpotifyVolume(value).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao ajustar o volume.'));
+      }, 180);
+      return;
+    }
+    playbackProviderRef.current!.setVolume(value);
+  }, [spotifyConnected]);
+
   const handleToggleMute = useCallback(() => {
-    const nextVolume = volume > 0 ? 0 : 0.8;
-    playbackProviderRef.current!.setVolume(nextVolume);
-  }, [volume]);
+    if (volume > 0) { lastVolumeRef.current = volume; handleVolumeChange(0); } else handleVolumeChange(lastVolumeRef.current || 0.8);
+  }, [volume, handleVolumeChange]);
 
   const handleUpdateVisualSettings = useCallback((updates: Partial<VisualSettings>) => {
     setVisualSettings((prev) => ({ ...prev, ...updates }));
@@ -376,6 +395,7 @@ export default function App() {
         onPrevious={handlePreviousTrack}
         onNext={handleNextTrack}
         onToggleMute={handleToggleMute}
+        onVolumeChange={handleVolumeChange}
       />
       {pipWindow && createPortal(
         <ReducedWidget

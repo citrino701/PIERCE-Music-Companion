@@ -15,6 +15,7 @@ export interface SpotifyDevice {
   type?: string;
   is_active?: boolean;
   is_restricted?: boolean;
+  volume_percent?: number | null;
 }
 
 /** Renew a minute before the access token (1 h) expires. */
