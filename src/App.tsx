@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import cinematicBackdrop from './assets/images/tame_impala_person_sky_1793799892976.jpg';
 import { ViewMode, TrackData, VisualSettings } from './types';
 import { TRACK_CATALOG } from './data/tracks';
@@ -14,7 +15,8 @@ import { NavigationSidebar } from './components/NavigationSidebar';
 import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { ReducedWidget } from './components/widget/ReducedWidget';
-import { enterReduced, exitReduced, resizeReduced, startDrag, onWindowMoved } from './services/widget/reducedWindow';
+import { enterReduced, exitReduced, resizeReduced, startDrag, onWindowMoved, isTauri } from './services/widget/reducedWindow';
+import { isPipSupported, openPipWindow, resizePipWindow } from './services/widget/pipWindow';
 import { WIDGET_STORAGE_KEY, parseWidgetPrefs, serializeWidgetPrefs, nextVariant, type WidgetPrefs, type WidgetVariant } from './services/widget/widgetLayout';
 import { parseLrc } from './services/lyrics/lrc';
 const LYRICS_OFFSET_MS = 0;
@@ -24,6 +26,7 @@ export default function App() {
   const [widgetPrefs, setWidgetPrefs] = useState<WidgetPrefs>(() => {
     try { return parseWidgetPrefs(window.localStorage.getItem(WIDGET_STORAGE_KEY)); } catch { return parseWidgetPrefs(null); }
   });
+  const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const widgetPrefsRef = useRef(widgetPrefs);
   widgetPrefsRef.current = widgetPrefs;
   const [currentTrack, setCurrentTrack] = useState<TrackData>(TRACK_CATALOG[0]);
@@ -214,7 +217,26 @@ export default function App() {
   const changeVariant = useCallback((variant: WidgetVariant) => {
     savePrefs({ ...widgetPrefsRef.current, variant });
     void resizeReduced(variant).catch(() => undefined);
-  }, [savePrefs]);
+    if (pipWindow) resizePipWindow(pipWindow, variant);
+  }, [savePrefs, pipWindow]);
+
+  // "Reduzir": desktop app -> morph the window; Chrome/Edge -> Picture-in-Picture window; otherwise the widget fills the tab.
+  const selectMode = useCallback((mode: ViewMode) => {
+    if (mode === 'fullscreen') {
+      pipWindow?.close();
+      setCurrentMode('fullscreen');
+      return;
+    }
+    if (!isTauri() && isPipSupported()) {
+      void openPipWindow(widgetPrefsRef.current.variant).then((win) => {
+        if (!win) { setCurrentMode('reduced'); return; }
+        win.addEventListener('pagehide', () => setPipWindow(null), { once: true });
+        setPipWindow(win);
+      }).catch(() => setCurrentMode('reduced'));
+      return;
+    }
+    setCurrentMode('reduced');
+  }, [pipWindow]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('pierce-reduced', currentMode === 'reduced');
@@ -243,9 +265,9 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
 
-      if (e.key === 'Escape' && currentMode === 'reduced') setCurrentMode('fullscreen');
-      if (e.key === '1') setCurrentMode('reduced');
-      if (e.key === '2') setCurrentMode('fullscreen');
+      if (e.key === 'Escape' && currentMode === 'reduced') selectMode('fullscreen');
+      if (e.key === '1') selectMode('reduced');
+      if (e.key === '2') selectMode('fullscreen');
       if (e.key.toLowerCase() === 'v' && currentMode === 'reduced') changeVariant(nextVariant(widgetPrefsRef.current.variant));
       if (e.code === 'Space') {
         e.preventDefault();
@@ -263,7 +285,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handleSeek, progressMs, currentMode, changeVariant]);
+  }, [handleTogglePlay, handleSeek, progressMs, currentMode, changeVariant, selectMode]);
 
   return currentMode === 'reduced' ? (
     <>
@@ -277,7 +299,7 @@ export default function App() {
         onTogglePlay={handleTogglePlay}
         onPrevious={handlePreviousTrack}
         onNext={handleNextTrack}
-        onExpand={() => setCurrentMode('fullscreen')}
+        onExpand={() => selectMode('fullscreen')}
         onDragStart={() => { void startDrag(); }}
       />
       {spotifyControlError && <div className="fixed bottom-1 left-1 right-1 z-[70] rounded-lg bg-black text-white px-3 py-2 text-[10px]">{spotifyControlError}</div>}
@@ -286,7 +308,7 @@ export default function App() {
     </>
   ) : (
     <main className="min-h-screen w-full concrete-canvas text-[#121114] relative overflow-hidden selection:bg-[#002aff] selection:text-white pierce-app-with-sidebar">
-      <NavigationSidebar currentMode={currentMode} onSelectMode={setCurrentMode} />
+      <NavigationSidebar currentMode={pipWindow ? 'reduced' : currentMode} onSelectMode={selectMode} />
       {spotifyControlError && <div className="fixed top-16 right-5 z-[70] max-w-sm rounded-lg bg-black text-white px-4 py-3 text-xs shadow-xl">{spotifyControlError}</div>}
       <div className="fixed right-5 top-5 z-50">
         <SpotifyConnectionPanel onSnapshot={handleSpotifySnapshot} onDisconnect={() => setSpotifyConnected(false)} />
@@ -305,13 +327,29 @@ export default function App() {
         visualSettings={visualSettings}
         onUpdateVisualSettings={handleUpdateVisualSettings}
         currentMode={currentMode}
-        onSelectMode={setCurrentMode}
+        onSelectMode={selectMode}
         onTogglePlay={handleTogglePlay}
         onSeek={handleSeek}
         onPrevious={handlePreviousTrack}
         onNext={handleNextTrack}
         onToggleMute={handleToggleMute}
       />
+      {pipWindow && createPortal(
+        <ReducedWidget
+          track={currentTrack}
+          progressMs={progressMs}
+          isPlaying={isPlaying}
+          activeLyric={activeLyric}
+          variant={widgetPrefs.variant}
+          onVariantChange={changeVariant}
+          onTogglePlay={handleTogglePlay}
+          onPrevious={handlePreviousTrack}
+          onNext={handleNextTrack}
+          onExpand={() => selectMode('fullscreen')}
+          onDragStart={() => undefined}
+        />,
+        pipWindow.document.body,
+      )}
     </main>
   );
 }
