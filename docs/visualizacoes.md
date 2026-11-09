@@ -15,6 +15,18 @@ O menu (botão ☰ no canto superior esquerdo) permite forçar o layout, ligar/d
 (título, capa viva, bolinhas, ASCII, Pi/ErCe, notas), usar presets (Completo/Leitura/Mínimo) e mudar o
 tamanho da letra (80–140%). Tudo fica salvo em `localStorage` na chave `pierce:view`.
 
+## Visualizações incluídas
+| id | Tela | Regra |
+| --- | --- | --- |
+| `colagem` | Bagunça 3 | composição completa + layouts compactos (acima) |
+| `respira` | H · Respira | verso atual em caixas de letras; a palavra cantada incha no ritmo |
+| `caca` | K · Caça-letras | letra escondida numa grade; o cantado vira janela da capa |
+| `pontilhado` | L · Pontilhado | 1100 pontos em canvas formam palavra/capa; o mouse sopra |
+
+H, K e L ocupam a janela inteira (ignoram `layout`/`elements`; o menu só troca a visualização e o tamanho da letra não se aplica).
+Ritmo: BPM da faixa (padrão 100/96 se não houver; o endpoint de audio-features da Spotify está fechado para apps novos).
+Tempo por palavra é interpolado dentro de cada linha (LRC só tem tempo por linha). Helpers em `src/services/views/rhythm.ts`.
+
 ## Adicionar uma visualização totalmente diferente
 1. Crie `src/components/colagem/views/MinhaView.tsx` (ou outra pasta) com um componente `React.FC<StageViewProps>`
    (`views/types.ts`). Ele recebe a faixa, progresso, letra ativa, controles e o layout/elementos escolhidos.
