@@ -19,6 +19,7 @@ import { ReducedWidget } from './components/widget/ReducedWidget';
 import { InstallPrompt } from './components/InstallPrompt';
 import { enterReduced, exitReduced, resizeReduced, startDrag, onWindowMoved, isTauri } from './services/widget/reducedWindow';
 import { isPipSupported, openPipWindow, resizePipWindow } from './services/widget/pipWindow';
+import { createKeepAlive, registerMediaSession, supportsAutoPip, updateMediaMetadata } from './services/widget/autoPip';
 import { WIDGET_STORAGE_KEY, parseWidgetPrefs, serializeWidgetPrefs, nextVariant, type WidgetPrefs, type WidgetVariant } from './services/widget/widgetLayout';
 import { parseLrc } from './services/lyrics/lrc';
 const LYRICS_OFFSET_MS = 0;
@@ -264,6 +265,38 @@ export default function App() {
     }).then((fn) => { if (disposed) fn?.(); else unlisten = fn; }).catch(() => undefined);
     return () => { disposed = true; window.clearTimeout(timer); unlisten?.(); };
   }, [currentMode, savePrefs]);
+
+  // Browser only: let Chrome open the floating widget by itself when you switch to another tab (like Spotify Web does).
+  // It needs the page to be "playing media", so a near-silent tone runs while Spotify plays (see autoPip.ts).
+  const autoPipEnabled = !isTauri() && supportsAutoPip();
+  const keepAliveRef = useRef(createKeepAlive());
+  const mediaActionsRef = useRef({ play: () => {}, pause: () => {}, next: () => {}, previous: () => {}, enterPip: () => {} });
+  mediaActionsRef.current = {
+    play: () => { if (!isPlaying) handleTogglePlay(); },
+    pause: () => { if (isPlaying) handleTogglePlay(); },
+    next: handleNextTrack,
+    previous: handlePreviousTrack,
+    enterPip: () => selectMode('reduced'),
+  };
+  useEffect(() => {
+    if (!autoPipEnabled) return;
+    const unlock = () => keepAliveRef.current.unlock();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    const unregister = registerMediaSession({
+      play: () => mediaActionsRef.current.play(),
+      pause: () => mediaActionsRef.current.pause(),
+      next: () => mediaActionsRef.current.next(),
+      previous: () => mediaActionsRef.current.previous(),
+      enterPip: () => mediaActionsRef.current.enterPip(),
+    });
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); unregister(); keepAliveRef.current.stop(); };
+  }, [autoPipEnabled]);
+  useEffect(() => {
+    if (!autoPipEnabled) return;
+    if (spotifyConnected && isPlaying) keepAliveRef.current.start(); else keepAliveRef.current.stop();
+    updateMediaMetadata(spotifyConnected ? currentTrack : null, isPlaying);
+  }, [autoPipEnabled, spotifyConnected, isPlaying, currentTrack.id, currentTrack.title, currentTrack.artist, currentTrack.coverImage]);
 
   // Keyboard navigation shortcuts
   useEffect(() => {
