@@ -196,6 +196,12 @@ export async function seekSpotifyPlayback(positionMs: number): Promise<void> {
   return spotifyPlayerRequest('/seek?position_ms=' + Math.max(0, Math.round(positionMs)), 'PUT');
 }
 
+/** Device volume, 0..1 (the Web API takes a whole percent). Some devices (phones, some speakers) refuse remote volume. */
+export async function setSpotifyVolume(volume: number): Promise<void> {
+  const percent = Math.min(100, Math.max(0, Math.round(volume * 100)));
+  return spotifyPlayerRequest('/volume?volume_percent=' + percent, 'PUT');
+}
+
 export async function skipSpotifyTrack(direction: 'next' | 'previous'): Promise<void> {
   return spotifyPlayerRequest('/' + direction, 'POST');
 }

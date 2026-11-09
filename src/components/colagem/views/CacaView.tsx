@@ -28,7 +28,7 @@ const Cell = React.memo(({ c, ch, kind, img, S, onEnter, onLeave, onClick }: Cel
  * K · Caça-letras — all lyrics scattered over a grid of loose letters: the future is scrambled, the sung word is
  * revealed letter by letter with a little hand pointing, sung cells become windows onto a huge ghost cover.
  */
-export const CacaView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, onTogglePlay, onSeek }) => {
+export const CacaView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext }) => {
   const [host, box] = useBox<HTMLDivElement>();
   const t = useFrameTime(progressMs, isPlaying, 30);
   const reduced = useReducedMotion();
@@ -123,7 +123,9 @@ export const CacaView: React.FC<StageViewProps> = ({ track, progressMs, isPlayin
             <div style={{ color: '#777', fontSize: 13 }}>a capa se monta com as letras já cantadas</div>
           </div>
           <div style={{ font: "500 18px 'Inter', sans-serif", flex: 'none' }}>{formatTime(t)} / {formatTime(track.durationMs / 1000)}</div>
+          <button type="button" onClick={onPrevious} aria-label="Faixa anterior" style={{ background: 'none', border: `2px solid ${INK}`, padding: '10px 14px', font: "500 16px 'Inter', sans-serif", cursor: 'pointer', flex: 'none' }}>‹ faixa</button>
           <button type="button" onClick={onTogglePlay} style={{ background: INK, color: '#fff', border: 'none', padding: '12px 22px', font: "500 16px 'Inter', sans-serif", cursor: 'pointer', flex: 'none' }}>{isPlaying ? 'pausar' : 'tocar'}</button>
+          <button type="button" onClick={onNext} aria-label="Próxima faixa" style={{ background: 'none', border: `2px solid ${INK}`, padding: '10px 14px', font: "500 16px 'Inter', sans-serif", cursor: 'pointer', flex: 'none' }}>faixa ›</button>
           <div style={{ marginLeft: 'auto', maxWidth: 360, fontSize: 13, color: '#555', textAlign: 'right' }}>passe o mouse numa letra cinza pra espiar a palavra do futuro, clique pra pular até ela</div>
         </div>
       </div>

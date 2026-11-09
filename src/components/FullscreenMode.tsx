@@ -13,6 +13,7 @@ import {
 } from '../services/colagem/layout';
 import { getStageView } from './colagem/views/registry';
 import { ViewMenu } from './colagem/ViewMenu';
+import { VolumeControl } from './VolumeControl';
 
 function loadPrefs(): ViewPrefs {
   try { return parseViewPrefs(localStorage.getItem(VIEW_STORAGE_KEY)); } catch { return parseViewPrefs(null); }
@@ -38,6 +39,7 @@ interface FullscreenModeProps {
   onPrevious: () => void;
   onNext: () => void;
   onToggleMute: () => void;
+  onVolumeChange: (volume: number) => void;
 }
 
 /** Fullscreen = "Bagunça 3" (docs/ui-bagunca3-spec.md) over the whole window, beside the navigation rail. */
@@ -55,6 +57,9 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   onSeek,
   onPrevious,
   onNext,
+  volume,
+  onToggleMute,
+  onVolumeChange,
 }) => {
   const [prefs, setPrefs] = useState<ViewPrefs>(loadPrefs);
   const [box, setBox] = useState({ w: 1280, h: 760 });
@@ -112,6 +117,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
         lyricScale={prefs.lyricScale}
       />
       <ViewMenu prefs={prefs} layout={layout} onChange={setPrefs} />
+      <VolumeControl volume={volume} onChange={onVolumeChange} onToggleMute={onToggleMute} />
     </div>
   );
 };

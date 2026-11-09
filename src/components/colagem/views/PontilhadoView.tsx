@@ -4,7 +4,7 @@ import { bpmOf, useBox, useFrameTime, useReducedMotion, useSmoothNow } from './h
 import { N_DOTS, STAGE_H, STAGE_W, isCoverMode, stepDot, type Shape } from './dotShapes';
 import { glowSprite, sampleCover, sampleWord, wordKey } from './dotSampling';
 import { useTimedLines, verseSeek } from './lines';
-import { beatInfo, formatTime, momentAt } from '../../../services/views/rhythm';
+import { beatInfo, formatTime, momentAt, sungEnd } from '../../../services/views/rhythm';
 
 const BG = '#0B0D16', FG = '#F3EEE6', FG2 = '#C9C2B8';
 const css = `@keyframes pierce-l-breathe{0%,100%{transform:scale(1.04)}50%{transform:scale(1.14) rotate(1.5deg)}}`;
@@ -14,7 +14,7 @@ const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
  * L · Pontilhado — 1100 persistent dots on a canvas: the current word is a cloud of dots, they fly into the next word,
  * and between verses (or when paused) they assemble the cover. The mouse is a fan that blows them away.
  */
-export const PontilhadoView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, onTogglePlay, onSeek }) => {
+export const PontilhadoView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext }) => {
   const [host, box] = useBox<HTMLDivElement>();
   const reduced = useReducedMotion();
   const now = useSmoothNow(progressMs, isPlaying);
@@ -62,7 +62,7 @@ export const PontilhadoView: React.FC<StageViewProps> = ({ track, progressMs, is
       const tt = now();
       const m = momentAt(L.lines, tt);
       const kick = L.isPlaying && !L.reduced ? beatInfo(tt, L.bpm).kick : 0;
-      const cover = isCoverMode({ paused: !L.isPlaying, hasLyrics: L.hasLyrics, index: m.index, gap: m.gap, now: tt, start: m.line?.t, end: m.line?.end });
+      const cover = isCoverMode({ paused: !L.isPlaying, hasLyrics: L.hasLyrics, index: m.index, gap: m.gap, now: tt, sungEnd: m.line ? sungEnd(m.line) : undefined });
       let target: Shape | null = null;
       if (cover) target = coverShape.current;
       else {
@@ -105,7 +105,7 @@ export const PontilhadoView: React.FC<StageViewProps> = ({ track, progressMs, is
   const prev = [...real].reverse().find((x) => x.i < (cur >= 0 ? cur : m.index + 1) && x.i <= Math.max(m.index, -1) && x.i !== cur);
   const next = real.find((x) => x.i > (m.index < 0 ? -1 : m.index));
   const p = m.line && !m.gap ? Math.min(1, Math.max(0, (t - m.line.t) / Math.max(0.1, m.line.end - m.line.t))) : 0;
-  const cover = isCoverMode({ paused: !isPlaying, hasLyrics, index: m.index, gap: m.gap, now: t, start: m.line?.t, end: m.line?.end });
+  const cover = isCoverMode({ paused: !isPlaying, hasLyrics, index: m.index, gap: m.gap, now: t, sungEnd: m.line ? sungEnd(m.line) : undefined });
   const state = !isPlaying ? 'pausado · a capa espera' : cover ? 'intervalo · os pontos montam a capa' : 'cantando';
   const { kick } = beatInfo(t, bpm);
   const k = isPlaying && !reduced ? kick : 0;
@@ -157,6 +157,8 @@ export const PontilhadoView: React.FC<StageViewProps> = ({ track, progressMs, is
             </div>
             <div style={{ font: "400 13px 'Inter', sans-serif", color: FG2, marginTop: 6 }}>cada palavra vira uma nuvem de pontos; o mouse sopra como um ventilador.</div>
           </div>
+          <button type="button" style={btn(false)} onClick={onPrevious}>‹ faixa</button>
+          <button type="button" style={btn(false)} onClick={onNext}>faixa ›</button>
           <button type="button" style={btn(false)} onClick={() => { const ms = verseSeek(lines, now(), -1); if (ms != null) onSeek(Math.round(ms)); }}>verso anterior</button>
           <button type="button" style={btn(false)} onClick={() => { const ms = verseSeek(lines, now(), 1); if (ms != null) onSeek(Math.round(ms)); }}>próximo verso</button>
           <button type="button" style={btn(true)} onClick={onTogglePlay}>{isPlaying ? 'pausar' : 'tocar'}</button>

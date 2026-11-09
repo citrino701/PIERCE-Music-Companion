@@ -44,8 +44,7 @@ export function stepDot(x: number, y: number, tx: number, ty: number, kick: numb
 }
 
 /** "Cover mode": paused, before the first line, a gap, the tail of a line, or no synced lyrics. */
-export function isCoverMode(o: { paused: boolean; hasLyrics: boolean; index: number; gap: boolean; now: number; start?: number; end?: number }): boolean {
-  if (o.paused || !o.hasLyrics || o.index < 0 || o.gap) return true;
-  if (o.start == null || o.end == null) return true;
-  return o.now - o.start > 0.85 * (o.end - o.start) + 0.2;
+export function isCoverMode(o: { paused: boolean; hasLyrics: boolean; index: number; gap: boolean; now: number; sungEnd?: number }): boolean {
+  if (o.paused || !o.hasLyrics || o.index < 0 || o.gap || o.sungEnd == null) return true;
+  return o.now > o.sungEnd + 0.2;
 }

@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { prefersReducedMotion } from '../useStageClock';
+import { LYRIC_LEAD_S } from '../../../services/views/rhythm';
 
 /** Playback position in seconds, interpolated locally between the app's updates (it only gets one every 250 ms). */
-export function useSmoothNow(progressMs: number, isPlaying: boolean): () => number {
+export function useSmoothNow(progressMs: number, isPlaying: boolean, lead = LYRIC_LEAD_S): () => number {
   const anchor = useRef({ ms: progressMs, at: performance.now(), playing: isPlaying });
   const last = useRef(progressMs);
   if (last.current !== progressMs || anchor.current.playing !== isPlaying) {
@@ -13,7 +14,7 @@ export function useSmoothNow(progressMs: number, isPlaying: boolean): () => numb
   }
   return () => {
     const a = anchor.current;
-    return (a.playing ? a.ms + (performance.now() - a.at) : a.ms) / 1000;
+    return (a.playing ? a.ms + (performance.now() - a.at) : a.ms) / 1000 + lead;
   };
 }
 

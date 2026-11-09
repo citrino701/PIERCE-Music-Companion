@@ -2,15 +2,18 @@ import React, { useMemo } from 'react';
 import type { StageViewProps } from './types';
 import { bpmOf, useBox, useFrameTime, useReducedMotion } from './hooks';
 import { useTimedLines, verseSeek } from './lines';
+import { INK } from '../../../services/palette/trackPalette';
+import { useTrackPalette } from '../useTrackPalette';
 import { beatInfo, formatTime, hash, lineIndexAt, wordTimings, type TimedWord } from '../../../services/views/rhythm';
 
-const BG = '#BEC72C', BOX = '#FF6A13', INK = '#111111';
 
 /**
  * H · Respira — the current line is a poster of boxed letters; the sung word swells on the beat,
  * sung words shrink and fill, future words are outlines. The cover is just another box. (docs: handoff H)
  */
-export const RespiraView: React.FC<StageViewProps> = ({ track, tracks, progressMs, isPlaying, onTogglePlay, onSeek }) => {
+export const RespiraView: React.FC<StageViewProps> = ({ track, tracks, progressMs, isPlaying, onTogglePlay, onSeek, onPrevious, onNext }) => {
+  const pal = useTrackPalette(track);
+  const BG = pal.bg, BOX = pal.a;
   const [host, box] = useBox<HTMLDivElement>();
   const t = useFrameTime(progressMs, isPlaying, 30);
   const reduced = useReducedMotion();
@@ -60,9 +63,9 @@ export const RespiraView: React.FC<StageViewProps> = ({ track, tracks, progressM
           return (
             <span key={li} className="pierce-h-letter" style={{
               display: 'inline-flex', lineHeight: 0.86, padding: '.02em .07em .06em', fontSize: size, fontWeight: 900,
-              fontFamily: "'Archivo', 'Arimo', sans-serif", color: INK, textTransform: 'uppercase',
+              fontFamily: "'Archivo', 'Arimo', sans-serif", color: cur || sung ? pal.onA : INK, textTransform: 'uppercase',
               background: cur || sung ? BOX : 'transparent', boxShadow: cur || sung ? 'none' : `inset 0 0 0 2px ${INK}`,
-              transform: `translateY(${dy}px)`, transition: 'font-size .28s cubic-bezier(.3,1.6,.5,1), transform .18s ease-out',
+              transform: `translateY(${dy}px)`, transition: 'font-size .28s cubic-bezier(.3,1.6,.5,1), transform .18s ease-out, background .8s, color .8s',
             } as React.CSSProperties}>{ch}</span>
           );
         })}
@@ -81,7 +84,7 @@ export const RespiraView: React.FC<StageViewProps> = ({ track, tracks, progressM
   const lineText = hasLyrics && shown >= 0 ? lines[shown].text : track.title;
 
   return (
-    <div ref={host} data-testid="respira-view" style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: BG, color: INK, fontFamily: "'Archivo', 'Arimo', sans-serif", display: 'flex', flexDirection: 'column', padding: `${Math.round(28 * sc)}px ${pad}px` }}>
+    <div ref={host} data-testid="respira-view" style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: BG, color: INK, transition: 'background .8s', fontFamily: "'Archivo', 'Arimo', sans-serif", display: 'flex', flexDirection: 'column', padding: `${Math.round(28 * sc)}px ${pad}px` }}>
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
         <defs>
           <filter id="hRough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed={roughSeed} /><feDisplacementMap in="SourceGraphic" scale="7" /></filter>
@@ -93,7 +96,11 @@ export const RespiraView: React.FC<StageViewProps> = ({ track, tracks, progressM
       <div aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>{lineText}</div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'start', gap: 12, ...small }}>
-        <div>faixa {n} de {tracks.length}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button type="button" onClick={onPrevious} aria-label="Faixa anterior" style={{ ...link, fontSize: '1.4em', padding: '0 6px' }}>‹</button>
+          <span>faixa {n} de {tracks.length}</span>
+          <button type="button" onClick={onNext} aria-label="Próxima faixa" style={{ ...link, fontSize: '1.4em', padding: '0 6px' }}>›</button>
+        </div>
         <button type="button" onClick={onTogglePlay} style={{ ...link, textAlign: 'center' }}>{isPlaying ? 'tocando agora' : 'pausado · toque aqui'}</button>
         <div style={{ textAlign: 'right' }}>{track.artist}<br />{track.title}</div>
       </div>
@@ -104,7 +111,7 @@ export const RespiraView: React.FC<StageViewProps> = ({ track, tracks, progressM
           transform: `rotate(${rot}deg)`, transition: 'width .45s cubic-bezier(.3,1.5,.5,1), height .45s cubic-bezier(.3,1.5,.5,1), transform .18s ease-out',
         }}>
           {track.coverImage && <img src={track.coverImage} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'grayscale(1) contrast(1.9) brightness(1.15)', mixBlendMode: 'multiply' }} />}
-          <span style={{ position: 'absolute', right: 6, bottom: 6, background: BG, color: INK, font: "700 13px 'Archivo', sans-serif", padding: '2px 6px' }}>{paused ? 'pausado · toque pra voltar' : 'CAPA · toque pra pausar'}</span>
+          <span style={{ position: 'absolute', right: 6, bottom: 6, background: BG, color: INK, transition: 'background .8s', font: "700 13px 'Archivo', sans-serif", padding: '2px 6px' }}>{paused ? 'pausado · toque pra voltar' : 'CAPA · toque pra pausar'}</span>
         </button>
         {words.map(word)}
       </div>
