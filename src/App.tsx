@@ -27,6 +27,7 @@ export default function App() {
     try { return parseWidgetPrefs(window.localStorage.getItem(WIDGET_STORAGE_KEY)); } catch { return parseWidgetPrefs(null); }
   });
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
+  const [reducedErrors, setReducedErrors] = useState<string[]>([]);
   const widgetPrefsRef = useRef(widgetPrefs);
   widgetPrefsRef.current = widgetPrefs;
   const [currentTrack, setCurrentTrack] = useState<TrackData>(TRACK_CATALOG[0]);
@@ -242,7 +243,8 @@ export default function App() {
     document.documentElement.classList.toggle('pierce-reduced', currentMode === 'reduced');
     if (currentMode === 'reduced') {
       const { variant, position } = widgetPrefsRef.current;
-      void enterReduced(variant, position).catch(() => undefined);
+      setReducedErrors([]);
+      void enterReduced(variant, position).then(setReducedErrors).catch((err) => setReducedErrors([String(err)]));
       return;
     }
     void exitReduced().then((pos) => { if (pos) savePrefs({ ...widgetPrefsRef.current, position: pos }); }).catch(() => undefined);
@@ -311,6 +313,7 @@ export default function App() {
         onDragStart={() => { void startDrag(); }}
       />
       {spotifyControlError && <div className="fixed bottom-1 left-1 right-1 z-[70] rounded-lg bg-black text-white px-3 py-2 text-[10px]">{spotifyControlError}</div>}
+      {reducedErrors.length > 0 && <div role="alert" className="fixed left-2 top-[230px] z-[70] max-w-[420px] rounded-lg bg-red-700 text-white px-3 py-2 text-[11px] font-mono">Não consegui ajustar a janela: {reducedErrors.join(' · ')}</div>}
     </>
   ) : (
     <main className="min-h-screen w-full concrete-canvas text-[#121114] relative overflow-hidden selection:bg-[#002aff] selection:text-white pierce-app-with-sidebar">
