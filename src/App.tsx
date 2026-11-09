@@ -56,8 +56,8 @@ export default function App() {
     setSpotifyConnected(true);
     if (typeof snapshot?.shuffle_state === 'boolean') setSpotifyShuffle(snapshot.shuffle_state);
     if (!snapshot?.item) {
+      // Idle device: keep the last track and position on screen, just mark it as paused.
       setIsPlaying(false);
-      setProgressMs(0);
       return;
     }
     const item = snapshot.item;
