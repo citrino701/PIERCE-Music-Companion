@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { beatInfo, formatTime, hash, lineIndexAt, momentAt, normalizeWord, rng, seedFromId, timedLines, wordTimings } from './rhythm.ts';
+import { beatInfo, sungEnd, formatTime, hash, lineIndexAt, momentAt, normalizeWord, rng, seedFromId, timedLines, wordTimings } from './rhythm.ts';
 
 const lyric = (id: string, startMs: number, text: string) => ({ id, startMs, endMs: startMs + 1000, text });
 const lines = timedLines([lyric('a', 1000, 'um dois'), lyric('b', 5000, ''), lyric('c', 7000, 'três quatro cinco')], 12);
@@ -17,10 +17,12 @@ test('lineIndexAt is -1 before the first line', () => {
   assert.equal(lineIndexAt(lines, 8), 2);
 });
 
-test('wordTimings spreads words over 85% of the line', () => {
-  const w = wordTimings(lines[0]);
+test('wordTimings weights words by length and stops at a plausible singing time', () => {
+  const w = wordTimings(lines[0]); // "um dois", 4 s long -> min(3.68, max(2.5, 0.96)) = 2.5 s
   assert.equal(w.length, 2);
-  assert.ok(Math.abs(w[1].end - (1 + 4 * 0.85)) < 1e-9);
+  assert.ok(Math.abs(w[1].end - (1 + 2.5)) < 1e-9);
+  assert.ok(w[1].end - w[1].start > w[0].end - w[0].start); // "dois" lasts longer than "um"
+  assert.ok(Math.abs(w[0].end - w[1].start) < 1e-9);
 });
 
 test('momentAt: gap before start and on empty lines, current word inside', () => {
@@ -29,7 +31,11 @@ test('momentAt: gap before start and on empty lines, current word inside', () =>
   const m = momentAt(lines, 1.2);
   assert.equal(m.gap, false);
   assert.equal(m.wordIndex, 0);
-  assert.equal(momentAt(lines, 3.5).wordIndex, 1);
+  assert.equal(momentAt(lines, 3.4).wordIndex, 1);
+});
+
+test('sungEnd is the end of the last word', () => {
+  assert.ok(Math.abs(sungEnd(lines[0]) - 3.5) < 1e-9);
 });
 
 test('beatInfo kick is 1 on the beat and 0 after a third of it', () => {

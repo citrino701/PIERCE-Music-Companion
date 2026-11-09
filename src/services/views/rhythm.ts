@@ -26,11 +26,30 @@ export function lineIndexAt(lines: { t: number }[], now: number): number {
   return ans;
 }
 
-/** Words share the first 85% of the line equally (LRC only has per-line timing). */
+/**
+ * LRC only has per-line timing, so words are timed by length (longer words last longer). The sung part is
+ * 92% of the line, but never more than a plausible singing time (~0.16 s per letter, at least 2.5 s):
+ * a line followed by an instrumental break ends early instead of dragging the last word across it.
+ */
 export function wordTimings(line: { t: number; end: number; text: string }, lineIdx = 0): TimedWord[] {
   const words = line.text.split(/\s+/).filter(Boolean);
-  const span = (line.end - line.t) * 0.85;
-  return words.map((w, k) => ({ text: w, start: line.t + (k / words.length) * span, end: line.t + ((k + 1) / words.length) * span, line: lineIdx }));
+  const letters = words.reduce((n, w) => n + [...w].length, 0) || 1;
+  const span = Math.min((line.end - line.t) * 0.92, Math.max(2.5, letters * 0.16));
+  let acc = 0;
+  return words.map((w) => {
+    const start = line.t + (acc / letters) * span;
+    acc += [...w].length;
+    return { text: w, start, end: line.t + (acc / letters) * span, line: lineIdx };
+  });
+}
+
+/** Seconds the lyrics lead the audio clock: Spotify's reported position lags a little behind what is heard. */
+export const LYRIC_LEAD_S = 0.25;
+
+/** When the sung part of a line ends (start of the breathing space). */
+export function sungEnd(line: { t: number; end: number; text: string }): number {
+  const w = wordTimings(line);
+  return w.length ? w[w.length - 1].end : line.end;
 }
 
 export function beatInfo(now: number, bpm: number, offset = 0) {

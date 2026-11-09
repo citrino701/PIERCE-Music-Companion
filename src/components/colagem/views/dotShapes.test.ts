@@ -26,9 +26,9 @@ test('dots converge to their target and wind pushes them away', () => {
 });
 
 test('cover mode on pause, gaps and line tails', () => {
-  const base = { paused: false, hasLyrics: true, index: 0, gap: false, start: 10, end: 20 };
+  const base = { paused: false, hasLyrics: true, index: 0, gap: false, sungEnd: 15 };
   assert.equal(isCoverMode({ ...base, now: 12 }), false);
-  assert.equal(isCoverMode({ ...base, now: 19.5 }), true);
+  assert.equal(isCoverMode({ ...base, now: 15.5 }), true);
   assert.equal(isCoverMode({ ...base, now: 12, paused: true }), true);
   assert.equal(isCoverMode({ ...base, now: 12, index: -1 }), true);
 });
