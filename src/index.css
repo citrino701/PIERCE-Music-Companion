@@ -282,6 +282,8 @@
 }
 .pierce-global-sidebar { background:var(--side); border-color:rgba(255,255,255,.08); }
 .pierce-app-with-sidebar { padding-left:4rem; }
+/* Floating widget: the window itself is transparent, only the widget is drawn. */
+html.pierce-reduced, html.pierce-reduced body, html.pierce-reduced #root { background:transparent !important; }
 .pierce-ascii-frame { position:absolute; inset:0; z-index:40; display:block; width:100%; height:100%; pointer-events:none; }
 .pierce-ambient-composition { opacity:.98; mix-blend-mode:multiply; overflow:hidden; pointer-events:auto; }
 .pierce-3d-wordmark { cursor:grab; touch-action:pan-y; }

@@ -50,7 +50,11 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
 }) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onSelectMode('compact');
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      // Escape inside the note editor (or any text field) only cancels that edit.
+      const target = e.target as HTMLElement | null;
+      if (target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')) return;
+      onSelectMode('reduced');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
