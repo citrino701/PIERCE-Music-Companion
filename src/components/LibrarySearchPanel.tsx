@@ -50,12 +50,16 @@ export const LibrarySearchPanel: React.FC<Props> = ({ connected, onPlayTrack, on
     getMyPlaylists().then(setPlaylists).catch((e) => setError(e instanceof Error ? e.message : 'Falha ao carregar playlists.')).finally(() => setLoading(false));
   }, [open, tab, needsReconnect, playlists]);
 
-  const tabBtn = (id: Tab, label: string, Icon: typeof ListMusic): React.CSSProperties => ({
-    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 6px', cursor: 'pointer',
-    border: 'none', borderBottom: tab === id ? '2px solid #111' : '2px solid transparent', background: 'none',
-    font: "700 12px 'Arimo', sans-serif", color: tab === id ? '#111' : '#777',
-  });
-  void ListMusic;
+  const tabBtn = (id: Tab, label: string, Icon: typeof ListMusic) => (
+    <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id} style={{
+      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 6px', cursor: 'pointer',
+      border: 'none', borderBottom: tab === id ? '2px solid #111' : '2px solid transparent', background: 'none',
+      font: "700 12px 'Arimo', sans-serif", color: tab === id ? '#111' : '#777',
+    }}>
+      <Icon size={13} />
+      {label}
+    </button>
+  );
 
   const row = (image: string, title: string, subtitle: string, onClick: () => void, key: string) => (
     <button key={key} type="button" onClick={onClick}
