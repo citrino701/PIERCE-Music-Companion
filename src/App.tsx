@@ -382,6 +382,9 @@ export default function App() {
         onNext={handleNextTrack}
         onExpand={() => selectMode('fullscreen')}
         onDragStart={() => { void startDrag(); }}
+        connected={spotifyConnected}
+        onPlayTrack={handlePlayTrackUri}
+        onPlayPlaylist={handlePlayPlaylistUri}
       />
       {spotifyControlError && <div className="fixed bottom-1 left-1 right-1 z-[70] rounded-lg bg-black text-white px-3 py-2 text-[10px]">{spotifyControlError}</div>}
       {reducedErrors.length > 0 && <div role="alert" className="fixed left-2 top-[230px] z-[70] max-w-[420px] rounded-lg bg-red-700 text-white px-3 py-2 text-[11px] font-mono">Não consegui ajustar a janela: {reducedErrors.join(' · ')}</div>}
@@ -430,6 +433,9 @@ export default function App() {
           onNext={handleNextTrack}
           onExpand={() => selectMode('fullscreen')}
           onDragStart={() => undefined}
+          connected={spotifyConnected}
+          onPlayTrack={handlePlayTrackUri}
+          onPlayPlaylist={handlePlayPlaylistUri}
         />,
         pipWindow.document.body,
       )}
