@@ -4,7 +4,10 @@
  * Spotify audio is never captured, analyzed, or synchronized to visuals here.
  */
 import { pickBestLyricsRecord } from '../lyrics/lrc';
-import { mergeRefreshedToken, needsRefresh, pickDevice, withDevice, type SpotifyDevice } from './spotifyResilience';
+import {
+  hasScopes, mapPlaylists, mapSearchTracks, mergeRefreshedToken, needsRefresh, pickDevice, withDevice,
+  type SpotifyDevice, type SpotifyPlaylistSummary, type SpotifySearchTrack,
+} from './spotifyResilience';
 
 const CLIENT_ID = '22cbfb1b63b146b79892330d3838609f';
 const WEB_REDIRECT_URI = 'https://pierce-music-companion.hugoviajante.workers.dev/';
@@ -15,7 +18,12 @@ const WEB_REDIRECT_URI = 'https://pierce-music-companion.hugoviajante.workers.de
  */
 export const spotifyRedirectUri = (): string =>
   typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' ? `${window.location.origin}/` : WEB_REDIRECT_URI;
-const SCOPES = ['user-read-playback-state', 'user-read-currently-playing', 'user-modify-playback-state'];
+const SCOPES = [
+  'user-read-playback-state', 'user-read-currently-playing', 'user-modify-playback-state',
+  'playlist-read-private', 'user-library-read', 'user-library-modify',
+];
+/** Scopes needed only by search/playlists/like — added after those features shipped. An older saved session may predate them. */
+const LIBRARY_SCOPES = ['playlist-read-private', 'user-library-read', 'user-library-modify'];
 const TOKEN_KEY = 'pierce.spotify.token';
 const VERIFIER_KEY = 'pierce.spotify.pkce.verifier';
 const STATE_KEY = 'pierce.spotify.oauth.state';
@@ -274,6 +282,61 @@ export async function fetchTrackLyrics(track:{title:string;artist:string;album:s
  const best=pickBestLyricsRecord(candidates,track.durationMs);
  return best?.syncedLyrics?best:(exactRecord??best);
 }
+/** True once the stored session covers search, playlists and the like button; false for a session logged in before those shipped. */
+export function hasLibraryScopes(): boolean {
+  const token = readStoredToken();
+  return !!token && hasScopes(token.scope, LIBRARY_SCOPES);
+}
+
+export async function searchSpotifyTracks(query: string, limit = 10): Promise<SpotifySearchTrack[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const response = await spotifyFetch('https://api.spotify.com/v1/search?' + new URLSearchParams({ q, type: 'track', limit: String(Math.min(10, limit)) }));
+  if (!response.ok) throw new Error('Não foi possível buscar no Spotify (erro ' + response.status + ').');
+  const data = await response.json() as { tracks?: { items?: unknown[] } };
+  return mapSearchTracks(data.tracks?.items as Parameters<typeof mapSearchTracks>[0]);
+}
+
+/** The person's own playlists (owned or followed), newest-edited first like Spotify shows them. */
+export async function getMyPlaylists(limit = 50): Promise<SpotifyPlaylistSummary[]> {
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/playlists?' + new URLSearchParams({ limit: String(Math.min(50, limit)) }));
+  if (!response.ok) throw new Error('Não foi possível carregar suas playlists (erro ' + response.status + ').');
+  const data = await response.json() as { items?: unknown[] };
+  return mapPlaylists(data.items as Parameters<typeof mapPlaylists>[0]);
+}
+
+/** Starts playback of specific tracks (search result) or a whole context (a playlist), on the last known device. */
+export async function playSpotifyUris(opts: { uris?: string[]; contextUri?: string }): Promise<void> {
+  const body = opts.contextUri ? { context_uri: opts.contextUri } : { uris: opts.uris };
+  const send = (deviceId: string | null) => spotifyFetch('https://api.spotify.com/v1/me/player/play' + withDevice('', deviceId), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let response = await send(lastDeviceId);
+  if (response.status === 404) {
+    const deviceId = await wakeDevice();
+    if (!deviceId) throw new Error(NO_DEVICE_MESSAGE);
+    response = await send(deviceId);
+  }
+  if (response.ok) return;
+  if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
+  if (response.status === 403) throw new Error('O Spotify exige uma conta Premium para controlar a reprodução.');
+  throw new Error('Não foi possível tocar essa faixa (erro ' + response.status + ').');
+}
+
+/** Whether the track (bare Spotify id) is in the person's Liked Songs. */
+export async function isTrackSaved(trackId: string): Promise<boolean> {
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/library/contains?' + new URLSearchParams({ uris: `spotify:track:${trackId}` }));
+  if (!response.ok) throw new Error('Não foi possível checar os favoritos (erro ' + response.status + ').');
+  const result = await response.json() as boolean[];
+  return result[0] === true;
+}
+
+/** Saves/removes a track from Liked Songs — the same list the Spotify app's heart button uses. */
+export async function setTrackSaved(trackId: string, saved: boolean): Promise<void> {
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/library?' + new URLSearchParams({ uris: `spotify:track:${trackId}` }), { method: saved ? 'PUT' : 'DELETE' });
+  if (response.ok) return;
+  if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
+  throw new Error('Não foi possível atualizar seus favoritos (erro ' + response.status + ').');
+}
+
 export function disconnectSpotify(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(VERIFIER_KEY);

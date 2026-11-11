@@ -38,3 +38,26 @@ test('withDevice appends the query correctly', () => {
   assert.equal(withDevice('/seek?position_ms=5', 'd'), '/seek?position_ms=5&device_id=d');
   assert.equal(withDevice('/pause', null), '/pause');
 });
+
+import { hasScopes, mapPlaylists, mapSearchTracks } from './spotifyResilience.ts';
+
+test('hasScopes requires every scope to be present', () => {
+  assert.equal(hasScopes('user-read-email user-library-read', ['user-library-read']), true);
+  assert.equal(hasScopes('user-read-email', ['user-library-read']), false);
+  assert.equal(hasScopes(undefined, []), true);
+});
+
+test('mapSearchTracks drops entries with no id and fills in sane defaults', () => {
+  const out = mapSearchTracks([
+    { id: 't1', uri: 'spotify:track:t1', name: 'Faixa', artists: [{ name: 'A' }, { name: 'B' }], album: { name: 'Álbum', images: [{ url: 'x.jpg' }] }, duration_ms: 1000 },
+    null, { id: null },
+  ]);
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0], { id: 't1', uri: 'spotify:track:t1', name: 'Faixa', artist: 'A, B', album: 'Álbum', durationMs: 1000, image: 'x.jpg' });
+});
+
+test('mapPlaylists drops null entries (Spotify pads deleted playlists with null)', () => {
+  const out = mapPlaylists([{ id: 'p1', name: 'Minha lista', owner: { display_name: 'eu' }, tracks: { total: 5 } }, null]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].trackCount, 5);
+});

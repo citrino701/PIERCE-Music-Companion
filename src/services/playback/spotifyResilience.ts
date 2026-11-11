@@ -54,6 +54,42 @@ export function pickDevice(devices: SpotifyDevice[], preferredId?: string | null
 }
 
 /** Adds device_id to a player path ("/pause", "/seek?position_ms=1"). */
+/** True when a stored token's granted scope string covers every scope the caller needs. */
+export function hasScopes(scope: string | undefined, needed: string[]): boolean {
+  const granted = new Set((scope ?? '').split(' ').filter(Boolean));
+  return needed.every((s) => granted.has(s));
+}
+
+export interface SpotifySearchTrack {
+  id: string; uri: string; name: string; artist: string; album: string; durationMs: number; image: string;
+}
+export interface SpotifyPlaylistSummary {
+  id: string; uri: string; name: string; owner: string; trackCount: number; image: string;
+}
+
+/** Spotify search/track JSON -> the shape the UI needs. Drops entries missing an id (local files, removed tracks). */
+export function mapSearchTracks(items: Array<{
+  id?: string | null; uri?: string; name?: string; duration_ms?: number;
+  artists?: Array<{ name?: string }>; album?: { name?: string; images?: Array<{ url?: string }> };
+} | null | undefined>): SpotifySearchTrack[] {
+  return (items ?? []).filter((t): t is NonNullable<typeof t> => !!t?.id).map((t) => ({
+    id: t.id as string, uri: t.uri ?? `spotify:track:${t.id}`, name: t.name ?? 'Sem título',
+    artist: (t.artists ?? []).map((a) => a.name).filter(Boolean).join(', ') || 'Artista desconhecido',
+    album: t.album?.name ?? '', durationMs: t.duration_ms ?? 0, image: t.album?.images?.[0]?.url ?? '',
+  }));
+}
+
+/** Playlist list JSON -> the shape the UI needs. Drops null entries (Spotify pads deleted playlists with null). */
+export function mapPlaylists(items: Array<{
+  id?: string; uri?: string; name?: string; owner?: { display_name?: string };
+  tracks?: { total?: number }; images?: Array<{ url?: string }>;
+} | null | undefined>): SpotifyPlaylistSummary[] {
+  return (items ?? []).filter((p): p is NonNullable<typeof p> => !!p?.id).map((p) => ({
+    id: p.id as string, uri: p.uri ?? `spotify:playlist:${p.id}`, name: p.name ?? 'Playlist sem nome',
+    owner: p.owner?.display_name ?? '', trackCount: p.tracks?.total ?? 0, image: p.images?.[0]?.url ?? '',
+  }));
+}
+
 export function withDevice(path: string, deviceId?: string | null): string {
   if (!deviceId) return path;
   return path + (path.includes('?') ? '&' : '?') + 'device_id=' + encodeURIComponent(deviceId);
