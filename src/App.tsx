@@ -12,7 +12,9 @@ import {
 import { FullscreenMode } from './components/FullscreenMode';
 import { SpotifyConnectionPanel } from './components/SpotifyConnectionPanel';
 import { NavigationSidebar } from './components/NavigationSidebar';
-import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, setSpotifyVolume, skipSpotifyTrack, setSpotifyShuffle, fetchTrackLyrics, getTrackGenres } from './services/playback/SpotifyMetadataConnector';
+import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, setSpotifyVolume, skipSpotifyTrack, setSpotifyShuffle as setSpotifyShuffleRemote, fetchTrackLyrics, getTrackGenres, playSpotifyUris } from './services/playback/SpotifyMetadataConnector';
+import { LibrarySearchPanel } from './components/LibrarySearchPanel';
+import { LikeButton } from './components/LikeButton';
 import { hasSpotifySession } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { ReducedWidget } from './components/widget/ReducedWidget';
@@ -211,11 +213,18 @@ export default function App() {
   const handleToggleShuffle = useCallback(() => {
     const next = !spotifyShuffle;
     if (spotifyConnected) {
-      void setSpotifyShuffle(next).then(() => setSpotifyShuffle(next)).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao alterar reprodução aleatória.'));
+      void setSpotifyShuffleRemote(next).then(() => setSpotifyShuffle(next)).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao alterar reprodução aleatória.'));
       return;
     }
     setSpotifyShuffle(next);
   }, [spotifyConnected, spotifyShuffle]);
+
+  const handlePlayTrackUri = useCallback((uri: string) => {
+    void playSpotifyUris({ uris: [uri] }).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao tocar a faixa.'));
+  }, []);
+  const handlePlayPlaylistUri = useCallback((uri: string) => {
+    void playSpotifyUris({ contextUri: uri }).catch((error) => setSpotifyControlError(error instanceof Error ? error.message : 'Falha ao tocar a playlist.'));
+  }, []);
 
   const handleVolumeChange = useCallback((next: number) => {
     const value = Math.min(1, Math.max(0, next));
@@ -406,6 +415,8 @@ export default function App() {
         lyricOffsetMs={lyricOffsetMs}
         onLyricOffsetChange={handleLyricOffsetChange}
       />
+      <LibrarySearchPanel connected={spotifyConnected} onPlayTrack={handlePlayTrackUri} onPlayPlaylist={handlePlayPlaylistUri} />
+      <LikeButton connected={spotifyConnected} trackId={currentTrack.id.startsWith('spotify-') ? currentTrack.id.slice('spotify-'.length) : null} />
       {pipWindow && createPortal(
         <ReducedWidget
           track={currentTrack}
