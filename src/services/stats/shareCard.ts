@@ -1,14 +1,16 @@
 /**
- * Draws the shareable "Suas métricas" card onto a <canvas> — plain Canvas 2D, no extra dependency
- * (html2canvas and friends can't be npm-installed in every environment this app is built in).
- * Split in two: pure layout/text helpers (unit-testable) and the actual drawing (needs a real canvas/DOM Image).
+ * Shareable Spotify-metrics cards — plain Canvas 2D, no extra dependency (html2canvas and friends can't be
+ * npm-installed in every environment this app is built in).
  *
- * Visual identity borrows from the app's "Pontilhado" (dithered dot) and ASCII-art views: a dithered dot
- * field instead of a flat grid, and a thin plasma-ASCII texture band (same generator as the live cover art)
- * behind the header/footer. The canvas height is computed from the actual content — not a fixed constant —
- * so the footer never overlaps the last rows, however many items are shown.
+ * Visual language is a "visual mixtape" in the spirit of Spotify's own Wrapped share cards — bold full-bleed
+ * colour, giant rank numerals, big cover art, confident oversized type, room to breathe — but ours, not a
+ * copy: original palettes, our own wordmark, and a small Pontilhado/ASCII flourish as the house signature
+ * instead of Wrapped's own marks. Two shapes:
+ *   - renderShareCard: a ranked list of ONLY artists or ONLY tracks — never both stacked in one card, so
+ *     you can share just the category you want.
+ *   - renderHeroShareCard: one single artist or track, poster-style, cover-forward.
+ * Both compute their own canvas height from the real content, so nothing is ever clipped or overlapped.
  */
-import { dither } from '../../components/colagem/views/dotShapes';
 import { liveCover } from '../colagem/colagem';
 import { hashString } from '../palette/trackPalette';
 
@@ -18,31 +20,46 @@ export interface ShareCardItem {
   image: string;
 }
 
+export type ShareSectionKind = 'artists' | 'tracks';
+
 export interface ShareCardData {
+  kind: ShareSectionKind;
   rangeLabel: string;
   generatedLabel: string;
-  artists: ShareCardItem[];
-  tracks: ShareCardItem[];
+  items: ShareCardItem[];
+}
+
+export interface HeroCardData {
+  itemKind: 'artist' | 'track';
+  rank: number;
+  name: string;
+  subtitle: string;
+  image: string;
+  rangeLabel: string;
+  generatedLabel: string;
 }
 
 export const CARD_WIDTH = 1080;
-const INK = '#141414';
-const CREAM = '#fbfaf6';
-export const ACCENTS = ['#FF6A13', '#BEC72C', '#2563EB', '#E11D48', '#7C3AED'];
 
-const PAD = 64;
-const ROW_H = 118;
-const THUMB = 92;
-const MAX_ITEMS_PER_SECTION = 10;
+interface Palette { bg: string; ink: string; accent: string }
+/** Original, bold colour fields — deliberately dark-with-vivid-accent so contrast never has to be checked per track (unlike a cover-derived palette, these numbers are fixed and were eyeballed for readability). */
+const PALETTES: Palette[] = [
+  { bg: '#241446', ink: '#F4EEFF', accent: '#FF5B9E' }, // deep purple / hot pink
+  { bg: '#7A0F1F', ink: '#FFF3E2', accent: '#FFD23F' }, // deep red / yellow
+  { bg: '#0E3B3C', ink: '#E7FFE0', accent: '#B6FF3C' }, // deep teal / lime
+  { bg: '#16215C', ink: '#EAF0FF', accent: '#5BD1FF' }, // indigo / sky
+  { bg: '#3A2618', ink: '#FFEFD9', accent: '#FF8A3D' }, // brown / orange
+];
 
-const HEADER_TITLE_Y = 128;
-const HEADER_SUBTITLE_Y = 168;
-const DIVIDER_Y = 198;
-const CONTENT_START_Y = 248;
-const SECTION_GAP = 36;
-const FOOTER_TOP_GAP = 40; // content end -> dashed divider
-const FOOTER_TEXT_GAP = 56; // dashed divider -> wordmark baseline
-const FOOTER_BOTTOM_PAD = 50; // wordmark baseline -> bottom edge
+function pickPalette(seedKey: string): Palette {
+  return PALETTES[hashString(seedKey) % PALETTES.length];
+}
+
+function hexWithAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 /** Shortens text with an ellipsis so it never overflows maxWidth — needs a 2D context with the font already set. */
 export function ellipsize(ctx: Pick<CanvasRenderingContext2D, 'measureText'>, text: string, maxWidth: number): string {
@@ -50,21 +67,6 @@ export function ellipsize(ctx: Pick<CanvasRenderingContext2D, 'measureText'>, te
   let cut = text;
   while (cut.length > 1 && ctx.measureText(cut + '…').width > maxWidth) cut = cut.slice(0, -1);
   return cut.length <= 1 ? '…' : cut + '…';
-}
-
-/** Vertical space a section with `n` rows (title + rows, or title + "sem dados" line) takes. */
-export function sectionHeight(n: number): number {
-  return n > 0 ? 30 + n * ROW_H + 18 : 30 + 34;
-}
-
-/** Full canvas height for this data — header + both sections (as they'll actually be drawn) + footer. */
-export function computeCardHeight(data: Pick<ShareCardData, 'artists' | 'tracks'>): number {
-  const nArtists = Math.min(data.artists.length, MAX_ITEMS_PER_SECTION);
-  const nTracks = Math.min(data.tracks.length, MAX_ITEMS_PER_SECTION);
-  const contentEnd = CONTENT_START_Y + sectionHeight(nArtists) + SECTION_GAP + sectionHeight(nTracks);
-  const dashedY = contentEnd + FOOTER_TOP_GAP;
-  const textY = dashedY + FOOTER_TEXT_GAP;
-  return Math.round(textY + FOOTER_BOTTOM_PAD);
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -77,34 +79,14 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-/** Dithered dot field (Bayer, same decision rule as the Pontilhado view) instead of a flat uniform grid. */
-function pontilhadoTexture(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number): void {
-  const step = 16;
-  ctx.fillStyle = 'rgba(20,20,20,.10)';
-  for (let gy = 0; gy * step < h; gy++) {
-    for (let gx = 0; gx * step < w; gx++) {
-      const x = gx * step, y = gy * step;
-      const v = Math.sin(x * 0.021 + seed) * Math.sin(y * 0.026 - seed * 1.3) * 0.5 + 0.5;
-      if (dither(v, gx, gy)) {
-        ctx.beginPath();
-        ctx.arc(x + 8, y + 8, 1.35, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-}
-
-/** A thin strip of the same plasma-ASCII texture used for "capa viva" live covers, as a quiet decorative band. */
-function asciiBand(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, seed: number, opacity: number): void {
-  const colW = 9, rowH = 15;
-  const cols = Math.max(4, Math.floor(w / colW));
-  const rows = 4;
-  const art = liveCover(seed * 0.37, seed, cols, rows);
+/** Tiny plasma-ASCII stamp (same generator as the "capa viva" live cover art) — the house signature flourish. */
+function asciiStamp(ctx: CanvasRenderingContext2D, x: number, y: number, seed: number, color: string): void {
+  const art = liveCover(seed * 0.4, seed, 14, 3);
   ctx.save();
-  ctx.font = "10px 'Courier New', monospace";
-  ctx.fillStyle = `rgba(20,20,20,${opacity})`;
+  ctx.font = "11px 'Courier New', monospace";
+  ctx.fillStyle = color;
   ctx.textBaseline = 'top';
-  art.split('\n').forEach((line, i) => ctx.fillText(line, x, y + i * rowH));
+  art.split('\n').forEach((line, i) => ctx.fillText(line, x, y + i * 13));
   ctx.restore();
 }
 
@@ -119,7 +101,6 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
-/** Loads every distinct image URL once, tolerating failures (a missing cover just falls back to a flat swatch). */
 async function preloadImages(urls: string[]): Promise<Map<string, HTMLImageElement>> {
   const unique = Array.from(new Set(urls.filter(Boolean)));
   const pairs = await Promise.all(unique.map(async (u) => [u, await loadImage(u)] as const));
@@ -128,78 +109,51 @@ async function preloadImages(urls: string[]): Promise<Map<string, HTMLImageEleme
   return map;
 }
 
-function drawSection(
-  ctx: CanvasRenderingContext2D, title: string, items: ShareCardItem[], images: Map<string, HTMLImageElement>, startY: number,
-): number {
-  let y = startY;
-  ctx.fillStyle = INK;
-  ctx.font = "800 30px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
-  ctx.fillText(title, PAD, y);
-  y += 30;
-
-  if (items.length === 0) {
-    ctx.fillStyle = '#999';
-    ctx.font = "italic 500 20px 'Arimo', sans-serif";
-    ctx.fillText('sem dados suficientes ainda', PAD, y + 22);
-    return y + 34;
-  }
-
-  items.forEach((item, i) => {
-    const rowY = y + i * ROW_H;
-    const accent = ACCENTS[i % ACCENTS.length];
-
-    // rank badge
-    ctx.fillStyle = accent;
-    ctx.beginPath();
-    ctx.arc(PAD + 22, rowY + THUMB / 2, 22, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = "800 22px 'Arimo', sans-serif";
-    ctx.textAlign = 'center';
-    ctx.fillText(String(i + 1).padStart(2, '0'), PAD + 22, rowY + THUMB / 2 + 8);
-    ctx.textAlign = 'left';
-
-    // cover / avatar — dotted ink ring instead of a solid border (Pontilhado touch)
-    const thumbX = PAD + 62;
-    const img = images.get(item.image);
-    if (img) {
-      ctx.save();
-      roundRect(ctx, thumbX, rowY, THUMB, THUMB, 10);
-      ctx.clip();
-      ctx.drawImage(img, thumbX, rowY, THUMB, THUMB);
-      ctx.restore();
-    } else {
-      roundRect(ctx, thumbX, rowY, THUMB, THUMB, 10);
-      ctx.fillStyle = accent + '33';
-      ctx.fill();
-    }
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([1, 3]);
-    roundRect(ctx, thumbX, rowY, THUMB, THUMB, 10);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // text
-    const textX = thumbX + THUMB + 26;
-    const maxTextWidth = CARD_WIDTH - PAD - textX;
-    ctx.fillStyle = INK;
-    ctx.font = "700 30px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
-    ctx.fillText(ellipsize(ctx, item.name, maxTextWidth), textX, rowY + 46);
-    ctx.fillStyle = '#6b6b6b';
-    ctx.font = "500 22px 'Arimo', sans-serif";
-    ctx.fillText(ellipsize(ctx, item.subtitle, maxTextWidth), textX, rowY + 78);
-  });
-
-  return y + items.length * ROW_H + 18;
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number): void {
+  const ir = img.naturalWidth / img.naturalHeight;
+  const tr = w / h;
+  let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+  if (ir > tr) { sw = img.naturalHeight * tr; sx = (img.naturalWidth - sw) / 2; }
+  else { sh = img.naturalWidth / tr; sy = (img.naturalHeight - sh) / 2; }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
-/** Renders the full card and returns the canvas (ready for toBlob/toDataURL). Async only because cover images load. */
+// ---------------------------------------------------------------------------
+// Ranked-list card (artists OR tracks, never both at once)
+// ---------------------------------------------------------------------------
+
+const PAD = 64;
+const ROW_H = 172;
+const THUMB = 140;
+const MAX_ITEMS = 10;
+
+const HEADER_TITLE_Y = 150;
+const HEADER_SUBTITLE_Y = 192;
+const DIVIDER_Y = 228;
+const CONTENT_START_Y = 280;
+const FOOTER_TOP_GAP = 56;
+const FOOTER_TEXT_GAP = 54;
+const FOOTER_BOTTOM_PAD = 52;
+
+/** Vertical space the ranked rows take, or room for a "sem dados" line when there are none. */
+export function sectionHeight(n: number): number {
+  return n > 0 ? n * ROW_H + 18 : 50;
+}
+
+/** Full canvas height for a given item count — content, whatever its size, plus the footer below it. */
+export function computeCardHeight(itemCount: number): number {
+  const n = Math.min(itemCount, MAX_ITEMS);
+  const contentEnd = CONTENT_START_Y + sectionHeight(n);
+  const dashedY = contentEnd + FOOTER_TOP_GAP;
+  const textY = dashedY + FOOTER_TEXT_GAP;
+  return Math.round(textY + FOOTER_BOTTOM_PAD);
+}
+
 export async function renderShareCard(data: ShareCardData): Promise<HTMLCanvasElement> {
-  const artists = data.artists.slice(0, MAX_ITEMS_PER_SECTION);
-  const tracks = data.tracks.slice(0, MAX_ITEMS_PER_SECTION);
-  const cardHeight = computeCardHeight({ artists, tracks });
-  const seed = hashString(`${data.rangeLabel}:${data.generatedLabel}:${artists.length}:${tracks.length}`) % 97;
+  const items = data.items.slice(0, MAX_ITEMS);
+  const palette = pickPalette(`${data.kind}:${data.rangeLabel}`);
+  const seed = hashString(`${data.kind}:${data.rangeLabel}`) % 97;
+  const cardHeight = computeCardHeight(items.length);
 
   const canvas = document.createElement('canvas');
   canvas.width = CARD_WIDTH;
@@ -207,38 +161,79 @@ export async function renderShareCard(data: ShareCardData): Promise<HTMLCanvasEl
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
 
-  const images = await preloadImages([...artists, ...tracks].map((i) => i.image));
+  const images = await preloadImages(items.map((i) => i.image));
 
-  ctx.fillStyle = CREAM;
+  ctx.fillStyle = palette.bg;
   ctx.fillRect(0, 0, CARD_WIDTH, cardHeight);
-  pontilhadoTexture(ctx, CARD_WIDTH, cardHeight, seed);
-  asciiBand(ctx, PAD, 18, CARD_WIDTH - PAD * 2, seed, 0.06);
 
-  ctx.fillStyle = INK;
-  ctx.font = "800 68px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
-  ctx.fillText('SUAS MÉTRICAS', PAD, HEADER_TITLE_Y);
-  ctx.font = "500 26px 'Arimo', sans-serif";
-  ctx.fillStyle = '#555';
+  const title = data.kind === 'artists' ? 'TOP ARTISTAS' : 'TOP MÚSICAS';
+  ctx.fillStyle = palette.ink;
+  ctx.font = "800 84px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
+  ctx.fillText(title, PAD, HEADER_TITLE_Y);
+  ctx.font = "600 26px 'Arimo', sans-serif";
+  ctx.fillStyle = hexWithAlpha(palette.ink, 0.65);
   ctx.fillText(`${data.rangeLabel} · ${data.generatedLabel}`, PAD, HEADER_SUBTITLE_Y);
 
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([1, 6]);
-  ctx.beginPath();
-  ctx.moveTo(PAD, DIVIDER_Y);
-  ctx.lineTo(CARD_WIDTH - PAD, DIVIDER_Y);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.fillStyle = palette.accent;
+  ctx.fillRect(PAD, DIVIDER_Y, 120, 7);
 
   let y = CONTENT_START_Y;
-  y = drawSection(ctx, 'ARTISTAS MAIS OUVIDOS', artists, images, y);
-  y += SECTION_GAP;
-  const contentEnd = drawSection(ctx, 'MÚSICAS MAIS OUVIDAS', tracks, images, y);
+  if (items.length === 0) {
+    ctx.fillStyle = hexWithAlpha(palette.ink, 0.6);
+    ctx.font = "italic 500 26px 'Arimo', sans-serif";
+    ctx.fillText('sem dados suficientes ainda', PAD, y + 32);
+  } else {
+    items.forEach((item, i) => {
+      const rowY = y + i * ROW_H;
+      const tilt = (i % 2 === 0 ? -1 : 1) * 2 * (Math.PI / 180);
 
-  const dashedY = contentEnd + FOOTER_TOP_GAP;
+      // giant rank numeral
+      ctx.fillStyle = palette.accent;
+      ctx.font = "800 100px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
+      ctx.textAlign = 'left';
+      ctx.fillText(String(i + 1).padStart(2, '0'), PAD, rowY + THUMB * 0.78);
+
+      // cover, slightly rotated for a "visual mixtape" feel, thick ink border
+      const coverX = PAD + 150;
+      const img = images.get(item.image);
+      ctx.save();
+      ctx.translate(coverX + THUMB / 2, rowY + THUMB / 2);
+      ctx.rotate(tilt);
+      ctx.translate(-THUMB / 2, -THUMB / 2);
+      if (img) {
+        ctx.save();
+        roundRect(ctx, 0, 0, THUMB, THUMB, 14);
+        ctx.clip();
+        drawCover(ctx, img, 0, 0, THUMB, THUMB);
+        ctx.restore();
+      } else {
+        roundRect(ctx, 0, 0, THUMB, THUMB, 14);
+        ctx.fillStyle = hexWithAlpha(palette.accent, 0.3);
+        ctx.fill();
+      }
+      ctx.strokeStyle = palette.ink;
+      ctx.lineWidth = 3;
+      roundRect(ctx, 0, 0, THUMB, THUMB, 14);
+      ctx.stroke();
+      ctx.restore();
+
+      // text
+      const textX = coverX + THUMB + 34;
+      const maxTextWidth = CARD_WIDTH - PAD - textX;
+      ctx.fillStyle = palette.ink;
+      ctx.font = "700 36px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
+      ctx.fillText(ellipsize(ctx, item.name, maxTextWidth), textX, rowY + THUMB / 2 - 4);
+      ctx.fillStyle = hexWithAlpha(palette.ink, 0.65);
+      ctx.font = "500 24px 'Arimo', sans-serif";
+      ctx.fillText(ellipsize(ctx, item.subtitle, maxTextWidth), textX, rowY + THUMB / 2 + 30);
+    });
+    y += items.length * ROW_H + 18;
+  }
+
+  const dashedY = y + FOOTER_TOP_GAP;
   const textY = dashedY + FOOTER_TEXT_GAP;
 
-  ctx.strokeStyle = INK;
+  ctx.strokeStyle = hexWithAlpha(palette.ink, 0.3);
   ctx.lineWidth = 2;
   ctx.setLineDash([2, 10]);
   ctx.beginPath();
@@ -247,12 +242,109 @@ export async function renderShareCard(data: ShareCardData): Promise<HTMLCanvasEl
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.fillStyle = INK;
-  ctx.font = "italic 600 34px 'Instrument Serif', Georgia, serif";
+  asciiStamp(ctx, PAD, dashedY + 14, seed, hexWithAlpha(palette.ink, 0.4));
+
+  ctx.fillStyle = palette.accent;
+  ctx.font = "italic 700 36px 'Instrument Serif', Georgia, serif";
   ctx.fillText('PiErCe', PAD, textY);
-  ctx.fillStyle = '#777';
+  ctx.fillStyle = hexWithAlpha(palette.ink, 0.55);
   ctx.font = "500 20px 'Arimo', sans-serif";
-  ctx.fillText('Music Companion — gerado a partir do seu Spotify', PAD + 128, textY - 2);
+  ctx.fillText('Music Companion — gerado a partir do seu Spotify', PAD + 132, textY - 2);
+
+  return canvas;
+}
+
+// ---------------------------------------------------------------------------
+// Hero card: one single artist or track, poster-style, cover-forward
+// ---------------------------------------------------------------------------
+
+export const HERO_WIDTH = 1080;
+export const HERO_HEIGHT = 1350;
+const HERO_PAD = 72;
+const HERO_COVER = 760;
+
+export async function renderHeroShareCard(data: HeroCardData): Promise<HTMLCanvasElement> {
+  const palette = pickPalette(`${data.itemKind}:${data.name}`);
+  const seed = hashString(`${data.itemKind}:${data.name}`) % 97;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = HERO_WIDTH;
+  canvas.height = HERO_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  const img = await loadImage(data.image);
+
+  ctx.fillStyle = palette.bg;
+  ctx.fillRect(0, 0, HERO_WIDTH, HERO_HEIGHT);
+
+  // category pill
+  const label = data.itemKind === 'artist' ? 'ARTISTA' : 'MÚSICA';
+  ctx.font = "800 22px 'Arimo', sans-serif";
+  const pillW = ctx.measureText(label).width + 36;
+  roundRect(ctx, HERO_PAD, 56, pillW, 40, 20);
+  ctx.fillStyle = palette.accent;
+  ctx.fill();
+  ctx.fillStyle = palette.bg;
+  ctx.textAlign = 'center';
+  ctx.fillText(label, HERO_PAD + pillW / 2, 82);
+  ctx.textAlign = 'left';
+
+  // giant outlined rank numeral
+  ctx.font = "800 150px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
+  ctx.strokeStyle = palette.accent;
+  ctx.lineWidth = 4;
+  ctx.strokeText(`Nº ${String(data.rank).padStart(2, '0')}`, HERO_PAD, 240);
+
+  // cover, centered, rotated, thick border + offset shadow (ties back to the app's own zine shadow motif)
+  const coverX = (HERO_WIDTH - HERO_COVER) / 2;
+  const coverY = 270;
+  ctx.save();
+  ctx.translate(coverX + HERO_COVER / 2, coverY + HERO_COVER / 2);
+  ctx.rotate(-2.5 * (Math.PI / 180));
+  ctx.translate(-HERO_COVER / 2, -HERO_COVER / 2);
+  ctx.fillStyle = hexWithAlpha(palette.ink, 0.4);
+  roundRect(ctx, 14, 14, HERO_COVER, HERO_COVER, 22);
+  ctx.fill();
+  if (img) {
+    ctx.save();
+    roundRect(ctx, 0, 0, HERO_COVER, HERO_COVER, 22);
+    ctx.clip();
+    drawCover(ctx, img, 0, 0, HERO_COVER, HERO_COVER);
+    ctx.restore();
+  } else {
+    roundRect(ctx, 0, 0, HERO_COVER, HERO_COVER, 22);
+    ctx.fillStyle = hexWithAlpha(palette.accent, 0.35);
+    ctx.fill();
+  }
+  ctx.strokeStyle = palette.ink;
+  ctx.lineWidth = 6;
+  roundRect(ctx, 0, 0, HERO_COVER, HERO_COVER, 22);
+  ctx.stroke();
+  ctx.restore();
+
+  // title + subtitle, centered below the cover
+  const textTop = coverY + HERO_COVER + 70;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = palette.ink;
+  ctx.font = "800 60px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
+  ctx.fillText(ellipsize(ctx, data.name, HERO_WIDTH - HERO_PAD * 2), HERO_WIDTH / 2, textTop);
+  ctx.font = "500 28px 'Arimo', sans-serif";
+  ctx.fillStyle = hexWithAlpha(palette.ink, 0.7);
+  ctx.fillText(ellipsize(ctx, data.subtitle, HERO_WIDTH - HERO_PAD * 2), HERO_WIDTH / 2, textTop + 44);
+  ctx.textAlign = 'left';
+
+  // footer
+  const footY = HERO_HEIGHT - 70;
+  asciiStamp(ctx, HERO_PAD, footY - 46, seed, hexWithAlpha(palette.ink, 0.4));
+  ctx.fillStyle = palette.accent;
+  ctx.font = "italic 700 34px 'Instrument Serif', Georgia, serif";
+  ctx.fillText('PiErCe', HERO_PAD, footY);
+  ctx.fillStyle = hexWithAlpha(palette.ink, 0.6);
+  ctx.font = "500 20px 'Arimo', sans-serif";
+  ctx.textAlign = 'right';
+  ctx.fillText(`${data.rangeLabel} · ${data.generatedLabel}`, HERO_WIDTH - HERO_PAD, footY);
+  ctx.textAlign = 'left';
 
   return canvas;
 }
