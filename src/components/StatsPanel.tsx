@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BarChart3, Disc3, Download, Share2, User, X } from 'lucide-react';
 import {
-  beginSpotifyAuthorization, getTopArtists, getTopTracks, hasTopScopes,
+  beginSpotifyAuthorization, getTopArtists, getTopTracks, getWeeklyTop, hasTopScopes,
 } from '../services/playback/SpotifyMetadataConnector';
-import { rangeLabel, type SpotifyTimeRange, type SpotifyTopArtist, type SpotifyTopTrack } from '../services/playback/spotifyResilience';
+import { rangeLabel, type StatsRange, type SpotifyTopArtist, type SpotifyTopTrack } from '../services/playback/spotifyResilience';
 import { renderShareCard, type ShareCardData } from '../services/stats/shareCard';
 
 interface Props {
@@ -12,13 +12,14 @@ interface Props {
 }
 
 type Tab = 'artists' | 'tracks';
-const RANGES: SpotifyTimeRange[] = ['short_term', 'medium_term', 'long_term'];
+const RANGES: StatsRange[] = ['week', 'short_term', 'medium_term', 'long_term'];
+const RANGE_CHIP_LABEL: Record<StatsRange, string> = { week: 'Semana', short_term: '4 sem.', medium_term: '6 meses', long_term: 'Sempre' };
 
 /** Top artists / top tracks, with a button to generate a shareable image of them — from the navigation rail. */
 export const StatsPanel: React.FC<Props> = ({ connected }) => {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('artists');
-  const [range, setRange] = useState<SpotifyTimeRange>('medium_term');
+  const [range, setRange] = useState<StatsRange>('medium_term');
   const [artists, setArtists] = useState<SpotifyTopArtist[] | null>(null);
   const [tracks, setTracks] = useState<SpotifyTopTrack[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,8 +42,11 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
   useEffect(() => {
     if (!open || needsReconnect) return;
     setLoading(true); setError(null);
-    Promise.all([getTopArtists(range, 10), getTopTracks(range, 10)])
-      .then(([a, t]) => { setArtists(a); setTracks(t); })
+    const load = range === 'week'
+      ? getWeeklyTop(10)
+      : Promise.all([getTopArtists(range, 10), getTopTracks(range, 10)]).then(([a, t]) => ({ artists: a, tracks: t }));
+    load
+      .then(({ artists: a, tracks: t }) => { setArtists(a); setTracks(t); })
       .catch((e) => setError(e instanceof Error ? e.message : 'Não foi possível carregar suas métricas.'))
       .finally(() => setLoading(false));
   }, [open, range, needsReconnect]);
@@ -137,7 +141,7 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
                   <button key={r} type="button" onClick={() => setRange(r)} aria-pressed={range === r} style={{
                     flex: 1, padding: '5px 3px', cursor: 'pointer', borderRadius: 999, border: '1.5px solid #111',
                     background: range === r ? '#111' : '#fff', color: range === r ? '#fff' : '#111', font: "700 10px 'Arimo', sans-serif",
-                  }}>{r === 'short_term' ? '4 sem.' : r === 'medium_term' ? '6 meses' : 'Sempre'}</button>
+                  }}>{RANGE_CHIP_LABEL[r]}</button>
                 ))}
               </div>
               <div style={{ overflowY: 'auto', padding: '6px 10px 4px', minHeight: 80 }}>
