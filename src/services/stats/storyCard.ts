@@ -38,6 +38,55 @@ function rand01(seed: number): number {
   return (((seed + 1) * 2654435761) >>> 0) % 1000 / 1000;
 }
 
+// ---------------------------------------------------------------------------
+// "PiErCe" ASCII wordmark — a small hand-built block font (just the 6 letters the mark needs), drawn as
+// literal rows of '#' characters in a monospace face. Bigger and more "ASCII art" than a line of italic
+// serif text, and reuses no external font file.
+// ---------------------------------------------------------------------------
+const ASCII_FONT: Record<string, string[]> = {
+  P: ['#### ', '#   #', '#   #', '#### ', '#    ', '#    ', '#    '],
+  i: [' # ', '   ', ' # ', ' # ', ' # ', ' # ', ' # '],
+  E: ['#####', '#    ', '#    ', '#### ', '#    ', '#    ', '#####'],
+  r: ['    ', ' ## ', '#  #', '#   ', '#   ', '#   ', '#   '],
+  C: [' ####', '#    ', '#    ', '#    ', '#    ', '#    ', ' ####'],
+  e: ['     ', ' ### ', '#   #', '#####', '#    ', '#   #', ' ### '],
+};
+const ASCII_WORDMARK = 'PiErCe';
+
+function asciiWordmarkRows(gap = 1): string[] {
+  const rows: string[] = Array.from({ length: 7 }, () => '');
+  [...ASCII_WORDMARK].forEach((ch, idx) => {
+    const glyph = ASCII_FONT[ch] ?? ASCII_FONT.e;
+    const last = idx === ASCII_WORDMARK.length - 1;
+    glyph.forEach((row, r) => { rows[r] += row + (last ? '' : ' '.repeat(gap)); });
+  });
+  return rows;
+}
+
+/** Draws the "PiErCe" ASCII wordmark, sized to fit `maxWidth`, anchored so its bottom row sits near `bottomY`. */
+function drawAsciiWordmark(
+  ctx: CanvasRenderingContext2D, x: number, bottomY: number, color: string, align: 'left' | 'right', maxWidth: number,
+): void {
+  const rows = asciiWordmarkRows();
+  const cols = rows[0].length;
+  let size = 26;
+  ctx.font = `700 ${size}px 'Courier New', monospace`;
+  let charW = ctx.measureText('#').width;
+  const totalW = () => charW * cols;
+  if (totalW() > maxWidth) {
+    size *= maxWidth / totalW();
+    ctx.font = `700 ${size}px 'Courier New', monospace`;
+    charW = ctx.measureText('#').width;
+  }
+  const lineH = size * 0.92;
+  const topY = bottomY - rows.length * lineH + lineH;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  rows.forEach((row, i) => ctx.fillText(row, x, topY + i * lineH));
+  ctx.restore();
+}
+
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     if (!src) { resolve(null); return; }
@@ -47,6 +96,75 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
     img.onerror = () => resolve(null);
     img.src = src;
   });
+}
+
+// ---------------------------------------------------------------------------
+// Contrast-aware accent colour for the 'tags' template: `palette.a` is derived FROM the cover art, so on a
+// photo whose dominant colour is close to it (an orange crowd shot with an orange accent, say), the tag
+// pills and coloured words all but vanish into the background — "o fundo não destaca nem fudendo". Sampling
+// the photo's own average colour and, when it's too close in hue or brightness to the accent, swapping in
+// the complementary hue fixes that regardless of which track's palette is in play.
+// ---------------------------------------------------------------------------
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0; const l = (max + min) / 2;
+  let s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4;
+    }
+    h *= 60;
+  }
+  return { h, s, l };
+}
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  const n = parseInt(hex.slice(1), 16);
+  return rgbToHsl(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+}
+
+/** Circular hue distance in degrees (0..180). */
+function hueDist(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/** Downscales `img` to a few pixels and averages them — cheap "dominant colour" read of the whole photo. */
+function sampleAverageColor(img: HTMLImageElement): { lum: number; hue: number } | null {
+  try {
+    const c = document.createElement('canvas');
+    c.width = 16; c.height = 16;
+    const x = c.getContext('2d');
+    if (!x) return null;
+    x.drawImage(img, 0, 0, 16, 16);
+    const data = x.getImageData(0, 0, 16, 16).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; n++; }
+    r /= n; g /= n; b /= n;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return { lum, hue: rgbToHsl(r / 255, g / 255, b / 255).h };
+  } catch {
+    return null; // tainted canvas (cross-origin cover without CORS headers) — fall back to the plain palette
+  }
+}
+
+/** Picks the pill-tag bg/fg for the 'tags' template: the track's own accent colour, unless the photo's own
+ * dominant colour sits too close to it (in hue or brightness) to read against — then a high-contrast
+ * complementary colour instead, so a tag never quietly disappears into a same-coloured photo. */
+function pickTagAccent(img: HTMLImageElement | null, palette: { a: string; onA: string }): { bg: string; fg: string } {
+  if (!img) return { bg: palette.a, fg: palette.onA };
+  const avg = sampleAverageColor(img);
+  if (!avg) return { bg: palette.a, fg: palette.onA };
+  const aHsl = hexToHsl(palette.a);
+  const tooClose = hueDist(avg.hue, aHsl.h) < 50 || Math.abs(avg.lum - aHsl.l * 255) < 45;
+  if (!tooClose) return { bg: palette.a, fg: palette.onA };
+  const contrastHue = (avg.hue + 150) % 360;
+  const bgLight = avg.lum < 140; // dark photo -> light pill; bright photo -> dark pill, for max separation
+  return { bg: `hsl(${Math.round(contrastHue)}, 75%, ${bgLight ? 78 : 24}%)`, fg: bgLight ? '#14142b' : '#ffffff' };
 }
 
 /** Cover-fit crop: draws `img` filling exactly x,y,w,h, cropping whichever axis overflows. */
@@ -303,11 +421,10 @@ async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, 
   const titleBaselineY = Math.min(titleTopY + titleSize * 0.78, STORY_HEIGHT - 150);
   drawCondensed(ctx, titleUpper, PAD, titleBaselineY, 800, titleSize, '#ffffff');
 
-  // footer, always pinned to the bottom regardless of how tall the composition above ended up
-  const footY = STORY_HEIGHT - 60;
-  ctx.fillStyle = palette.a;
-  ctx.font = "italic 700 30px 'Instrument Serif', Georgia, serif";
-  ctx.fillText('PiErCe', PAD, footY);
+  // footer, always pinned to the bottom regardless of how tall the composition above ended up — the house
+  // wordmark as a bigger ASCII block logo instead of a small line of italic serif text.
+  const footY = STORY_HEIGHT - 50;
+  drawAsciiWordmark(ctx, PAD, footY, palette.a, 'left', 560);
 }
 
 function hexWithAlpha(hex: string, alpha: number): string {
@@ -344,6 +461,12 @@ async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, im
   ctx.fillRect(0, STORY_HEIGHT - 460, STORY_WIDTH, 460);
 
   asciiCornerStamp(ctx, PAD, 68, seed, 'left');
+
+  // The pill/accent colour is the track's `palette.a` — but that colour is itself derived from the cover,
+  // so on a photo whose own dominant colour sits close to it (an orange carnival shot with an orange
+  // accent, say) every tag and coloured word quietly vanishes into the background. `pickTagAccent` samples
+  // the photo and swaps in a contrasting colour whenever that happens.
+  const { bg: tagBg, fg: tagFg } = pickTagAccent(img, palette);
 
   // No hard cap on word count — a fixed slice used to silently drop whatever didn't fit. Every word of the
   // excerpt always renders, in the app's own lyric typeface (Instrument Serif) — most words set big and
@@ -440,15 +563,28 @@ async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, im
       ctx.font = `400 ${tw.size}px ${SERIF}`;
       ctx.textAlign = 'center';
       if (tw.isTag) {
+        // a soft drop shadow under the pill itself too — on a busy photo even a contrasting flat colour
+        // can lose its edges, so the pill gets a little lift of its own, same as the plain words below.
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,.5)';
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 3;
         roundRect(ctx, -boxW / 2, -tw.size * 0.84, boxW, tw.size * 1.2, tw.size * 0.3);
-        ctx.fillStyle = palette.a;
+        ctx.fillStyle = tagBg;
         ctx.fill();
-        ctx.fillStyle = palette.onA;
+        ctx.restore();
+        ctx.fillStyle = tagFg;
         ctx.fillText(tw.text, 0, 0);
       } else {
-        ctx.shadowColor = 'rgba(0,0,0,.65)';
-        ctx.shadowBlur = 16;
-        ctx.fillStyle = tw.colorAccent ? palette.a : '#ffffff';
+        // dark outline + shadow halo, strong enough to read on any photo regardless of colour — "arruma
+        // isso criando uma sombra maior" — a colour-only fix can't save a word sitting on same-hue detail.
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = Math.max(3, tw.size * 0.16);
+        ctx.strokeStyle = 'rgba(0,0,0,.8)';
+        ctx.strokeText(tw.text, 0, 0);
+        ctx.shadowColor = 'rgba(0,0,0,.7)';
+        ctx.shadowBlur = 22;
+        ctx.fillStyle = tw.colorAccent ? tagBg : '#ffffff';
         ctx.fillText(tw.text, 0, 0);
         ctx.shadowBlur = 0;
       }
@@ -466,11 +602,7 @@ async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, im
   ctx.fillStyle = 'rgba(255,255,255,.75)';
   ctx.font = "500 22px 'Arimo', sans-serif";
   ctx.fillText(data.artist, PAD, footY);
-  ctx.fillStyle = palette.a;
-  ctx.font = "italic 700 28px 'Instrument Serif', Georgia, serif";
-  ctx.textAlign = 'right';
-  ctx.fillText('PiErCe', STORY_WIDTH - PAD, footY);
-  ctx.textAlign = 'left';
+  drawAsciiWordmark(ctx, STORY_WIDTH - PAD, footY, palette.a, 'right', 300);
 }
 
 export async function renderStoryCard(data: StoryCardData): Promise<HTMLCanvasElement> {
