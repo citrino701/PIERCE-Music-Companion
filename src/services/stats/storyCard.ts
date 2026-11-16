@@ -98,6 +98,26 @@ function condensedWidth(ctx: CanvasRenderingContext2D, text: string, weight: num
 // 'poster' template — bold colour field, big playful caps, cover as a small inset photo
 // ---------------------------------------------------------------------------
 
+/**
+ * Biggest-tier-that-fits: a short excerpt should look like a bold intentional choice (huge type, big cover),
+ * not a small amount of content lost in a mostly-empty frame. Tries tiers from boldest to most compact and
+ * keeps the first whose total composition height fits the available vertical space.
+ */
+const POSTER_TIERS = [
+  { size: 128, lineH: 142, cover: 360 },
+  { size: 104, lineH: 116, cover: 340 },
+  { size: 88, lineH: 98, cover: 320 },
+  { size: 74, lineH: 82, cover: 300 },
+  { size: 62, lineH: 70, cover: 280 },
+  { size: 52, lineH: 58, cover: 260 },
+  { size: 44, lineH: 50, cover: 240 },
+];
+const POSTER_GAP1 = 46; // lyric block -> cover
+const POSTER_GAP2 = 84; // artist line -> title
+const POSTER_TITLE_ESTIMATE = 110;
+const POSTER_TOP_MARGIN = 130;
+const POSTER_FOOTER_RESERVE = 150;
+
 async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, img: HTMLImageElement | null): Promise<void> {
   const palette = await getTrackPalette({ id: `${data.title}:${data.artist}`, coverImage: data.image });
 
@@ -106,23 +126,33 @@ async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, 
   ctx.fillStyle = INK;
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
-  const maxWidth = (STORY_WIDTH - PAD * 2) / 0.86;
   const upperLines = data.lines.map((l) => l.trim().toUpperCase());
-  ctx.font = "800 72px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
-  let visual = layoutLyricLines(ctx, upperLines, maxWidth);
-  let size = 72, lineH = 80;
-  if (visual.length > 5) { size = 54; lineH = 60; ctx.font = `800 ${size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`; visual = layoutLyricLines(ctx, upperLines, (STORY_WIDTH - PAD * 2) / 0.86); }
+  const availableHeight = STORY_HEIGHT - POSTER_TOP_MARGIN - POSTER_FOOTER_RESERVE;
 
-  let ly = 190;
-  visual.slice(0, 9).forEach((line) => {
+  let chosen = POSTER_TIERS[POSTER_TIERS.length - 1];
+  let visual = upperLines;
+  for (const tier of POSTER_TIERS) {
+    ctx.font = `800 ${tier.size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`;
+    const candidate = layoutLyricLines(ctx, upperLines, (STORY_WIDTH - PAD * 2) / 0.86).slice(0, 9);
+    const total = candidate.length * tier.lineH + POSTER_GAP1 + tier.cover + 56 + POSTER_GAP2 + POSTER_TITLE_ESTIMATE;
+    if (total <= availableHeight) { chosen = tier; visual = candidate; break; }
+    chosen = tier;
+    visual = candidate;
+  }
+  const { size, lineH, cover: coverSize } = chosen;
+
+  const blockHeight = visual.length * lineH + POSTER_GAP1 + coverSize + 56 + POSTER_GAP2 + POSTER_TITLE_ESTIMATE;
+  const startY = POSTER_TOP_MARGIN + Math.max(0, (availableHeight - blockHeight) / 2) + size * 0.8;
+
+  let ly = startY;
+  visual.forEach((line) => {
     drawCondensed(ctx, line, PAD, ly, 800, size, palette.a);
     ly += lineH;
   });
 
   // cover inset, small, rotated — "a imagem representando a capa"
-  const coverSize = 300;
   const coverX = PAD;
-  const coverY = ly + 50;
+  const coverY = ly - size * 0.8 + POSTER_GAP1;
   if (img) {
     ctx.save();
     ctx.translate(coverX + coverSize / 2, coverY + coverSize / 2);
@@ -151,14 +181,17 @@ async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, 
   ctx.font = "italic 600 32px 'Instrument Serif', Georgia, serif";
   ctx.fillText(data.artist, coverX, coverY + coverSize + 56);
 
-  // big title at the bottom, same condensed caps treatment
-  const titleY = STORY_HEIGHT - 190;
+  // big title, same condensed caps treatment, right after the artist line (not pinned to a fixed bottom y).
+  // Positioned by its TOP (+ its own ascent), not by baseline straight off the artist line, so a huge title
+  // size never climbs back up into the artist text above it.
+  const titleTopY = coverY + coverSize + 56 + POSTER_GAP2;
   const titleUpper = data.title.toUpperCase();
   let titleSize = 92;
   while (titleSize > 44 && condensedWidth(ctx, titleUpper, 800, titleSize) > STORY_WIDTH - PAD * 2) titleSize -= 4;
-  drawCondensed(ctx, titleUpper, PAD, titleY, 800, titleSize, '#ffffff');
+  const titleBaselineY = Math.min(titleTopY + titleSize * 0.78, STORY_HEIGHT - 150);
+  drawCondensed(ctx, titleUpper, PAD, titleBaselineY, 800, titleSize, '#ffffff');
 
-  // footer
+  // footer, always pinned to the bottom regardless of how tall the composition above ended up
   const footY = STORY_HEIGHT - 60;
   ctx.fillStyle = palette.a;
   ctx.font = "italic 700 30px 'Instrument Serif', Georgia, serif";
@@ -189,18 +222,27 @@ async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, im
   const words = data.lines.flatMap((l) => l.trim().split(/\s+/).filter(Boolean)).slice(0, 10);
   const textColor = palette.onA;
   ctx.font = "800 34px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
-  let y = 260;
+
+  // Spread across most of the frame, drifting left-to-right as it goes down (like the reference's diagonal
+  // cascade) with a deterministic per-word jitter — not all stacked in one narrow column near the margin.
+  const topY = 240;
+  const bottomY = STORY_HEIGHT - 560;
+  const tagBoxMax = 260;
+  const usableW = STORY_WIDTH - PAD * 2 - tagBoxMax;
+  const stepY = words.length > 1 ? (bottomY - topY) / (words.length - 1) : 0;
   words.forEach((w, i) => {
-    const jitter = ((i * 97) % 11) * 9 - 50; // deterministic, no RNG import needed
-    const x = PAD + 60 + Math.max(0, jitter);
+    const drift = words.length > 1 ? i / (words.length - 1) : 0;
+    const jitter = (((i + 1) * 2654435761) >>> 0) % 1000 / 1000; // deterministic 0..1, no RNG import needed
+    const y = topY + stepY * i;
     const tw = ctx.measureText(w).width;
     const padX = 18, padY = 12;
+    let x = PAD + drift * usableW * 0.55 + jitter * usableW * 0.45;
+    x = Math.min(x, STORY_WIDTH - PAD - tw - padX * 2);
     ctx.fillStyle = palette.a;
     roundRect(ctx, x - padX, y - 34, tw + padX * 2, 34 + padY, 8);
     ctx.fill();
     ctx.fillStyle = textColor;
     ctx.fillText(w, x, y - 8);
-    y += 96;
   });
 
   const footY = STORY_HEIGHT - 70;
