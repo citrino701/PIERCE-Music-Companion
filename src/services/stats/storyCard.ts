@@ -129,11 +129,14 @@ async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, 
   const upperLines = data.lines.map((l) => l.trim().toUpperCase());
   const availableHeight = STORY_HEIGHT - POSTER_TOP_MARGIN - POSTER_FOOTER_RESERVE;
 
+  // No hard cap on visual-line count here either — the smallest tier below (44px) already fits well over
+  // the MAX_LINES=8 the picker allows, so a fixed slice() was just a way to silently lose lines, same bug
+  // as the tags template had.
   let chosen = POSTER_TIERS[POSTER_TIERS.length - 1];
   let visual = upperLines;
   for (const tier of POSTER_TIERS) {
     ctx.font = `800 ${tier.size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`;
-    const candidate = layoutLyricLines(ctx, upperLines, (STORY_WIDTH - PAD * 2) / 0.86).slice(0, 9);
+    const candidate = layoutLyricLines(ctx, upperLines, (STORY_WIDTH - PAD * 2) / 0.86);
     const total = candidate.length * tier.lineH + POSTER_GAP1 + tier.cover + 56 + POSTER_GAP2 + POSTER_TITLE_ESTIMATE;
     if (total <= availableHeight) { chosen = tier; visual = candidate; break; }
     chosen = tier;
@@ -219,30 +222,65 @@ async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, im
   ctx.fillStyle = fade;
   ctx.fillRect(0, STORY_HEIGHT - 460, STORY_WIDTH, 460);
 
-  const words = data.lines.flatMap((l) => l.trim().split(/\s+/).filter(Boolean)).slice(0, 10);
+  // No hard cap on word count — a fixed slice(0, 10) used to silently drop whatever didn't fit, which is how
+  // the last words of a longer excerpt (e.g. 6 of the allowed 8 lines) went missing. Instead, the whole
+  // excerpt is always shown: it's laid out as wrapped rows of tags (several words per row, like the torn-
+  // collage reference) and the biggest tag size that lets every word fit in the available vertical space wins.
+  const words = data.lines.flatMap((l) => l.trim().split(/\s+/).filter(Boolean));
   const textColor = palette.onA;
-  ctx.font = "800 34px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
-
-  // Spread across most of the frame, drifting left-to-right as it goes down (like the reference's diagonal
-  // cascade) with a deterministic per-word jitter — not all stacked in one narrow column near the margin.
   const topY = 240;
   const bottomY = STORY_HEIGHT - 560;
-  const tagBoxMax = 260;
-  const usableW = STORY_WIDTH - PAD * 2 - tagBoxMax;
-  const stepY = words.length > 1 ? (bottomY - topY) / (words.length - 1) : 0;
-  words.forEach((w, i) => {
-    const drift = words.length > 1 ? i / (words.length - 1) : 0;
-    const jitter = (((i + 1) * 2654435761) >>> 0) % 1000 / 1000; // deterministic 0..1, no RNG import needed
-    const y = topY + stepY * i;
-    const tw = ctx.measureText(w).width;
-    const padX = 18, padY = 12;
-    let x = PAD + drift * usableW * 0.55 + jitter * usableW * 0.45;
-    x = Math.min(x, STORY_WIDTH - PAD - tw - padX * 2);
-    ctx.fillStyle = palette.a;
-    roundRect(ctx, x - padX, y - 34, tw + padX * 2, 34 + padY, 8);
-    ctx.fill();
-    ctx.fillStyle = textColor;
-    ctx.fillText(w, x, y - 8);
+  const usableW = STORY_WIDTH - PAD * 2;
+
+  const TAG_TIERS = [
+    { size: 64, padX: 26, padY: 20, gap: 18, rowH: 106 },
+    { size: 54, padX: 24, padY: 18, gap: 16, rowH: 92 },
+    { size: 46, padX: 22, padY: 16, gap: 14, rowH: 80 },
+    { size: 38, padX: 20, padY: 14, gap: 12, rowH: 68 },
+    { size: 32, padX: 18, padY: 12, gap: 10, rowH: 58 },
+    { size: 26, padX: 16, padY: 10, gap: 9, rowH: 48 },
+  ];
+
+  const wrapIntoRows = (size: number, padX: number, gap: number): string[][] => {
+    ctx.font = `800 ${size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`;
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let rowW = 0;
+    for (const w of words) {
+      const tagW = ctx.measureText(w).width + padX * 2;
+      const extra = row.length ? gap + tagW : tagW;
+      if (row.length && rowW + extra > usableW) { rows.push(row); row = []; rowW = 0; }
+      row.push(w);
+      rowW += row.length === 1 ? tagW : gap + tagW;
+    }
+    if (row.length) rows.push(row);
+    return rows;
+  };
+
+  let tier = TAG_TIERS[TAG_TIERS.length - 1];
+  let rows = wrapIntoRows(tier.size, tier.padX, tier.gap);
+  for (const t of TAG_TIERS) {
+    const candidateRows = wrapIntoRows(t.size, t.padX, t.gap);
+    if (candidateRows.length * t.rowH <= bottomY - topY) { tier = t; rows = candidateRows; break; }
+    tier = t;
+    rows = candidateRows;
+  }
+
+  ctx.font = `800 ${tier.size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`;
+  rows.forEach((row, ri) => {
+    const rowJitter = (((ri + 1) * 2654435761) >>> 0) % 1000 / 1000;
+    const rowWidth = row.reduce((sum, w, i) => sum + ctx.measureText(w).width + tier.padX * 2 + (i ? tier.gap : 0), 0);
+    let x = PAD + Math.max(0, (usableW - rowWidth)) * (0.15 + rowJitter * 0.3);
+    const y = topY + ri * tier.rowH;
+    row.forEach((w) => {
+      const tw = ctx.measureText(w).width;
+      ctx.fillStyle = palette.a;
+      roundRect(ctx, x, y - tier.size, tw + tier.padX * 2, tier.size + tier.padY, 8);
+      ctx.fill();
+      ctx.fillStyle = textColor;
+      ctx.fillText(w, x + tier.padX, y - tier.size * 0.22);
+      x += tw + tier.padX * 2 + tier.gap;
+    });
   });
 
   const footY = STORY_HEIGHT - 70;
