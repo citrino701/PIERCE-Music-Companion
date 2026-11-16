@@ -39,7 +39,7 @@ test('withDevice appends the query correctly', () => {
   assert.equal(withDevice('/pause', null), '/pause');
 });
 
-import { hasScopes, mapPlaylists, mapSearchTracks } from './spotifyResilience.ts';
+import { hasScopes, mapPlaylists, mapSearchTracks, mapTopArtists, mapTopTracks, rangeLabel } from './spotifyResilience.ts';
 
 test('hasScopes requires every scope to be present', () => {
   assert.equal(hasScopes('user-read-email user-library-read', ['user-library-read']), true);
@@ -60,4 +60,23 @@ test('mapPlaylists drops null entries (Spotify pads deleted playlists with null)
   const out = mapPlaylists([{ id: 'p1', name: 'Minha lista', owner: { display_name: 'eu' }, tracks: { total: 5 } }, null]);
   assert.equal(out.length, 1);
   assert.equal(out[0].trackCount, 5);
+});
+
+test('mapTopArtists drops entries with no id and defaults genres/image', () => {
+  const out = mapTopArtists([{ id: 'a1', name: 'KATSEYE', genres: ['pop'], images: [{ url: 'a.jpg' }] }, null, { id: null }]);
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0], { id: 'a1', name: 'KATSEYE', genres: ['pop'], image: 'a.jpg' });
+  assert.deepEqual(mapTopArtists([{ id: 'a2' }])[0], { id: 'a2', name: 'Artista desconhecido', genres: [], image: '' });
+});
+
+test('mapTopTracks drops entries with no id and joins artist names', () => {
+  const out = mapTopTracks([{ id: 't1', name: 'Gabriela', artists: [{ name: 'KATSEYE' }], album: { images: [{ url: 't.jpg' }] } }, null]);
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0], { id: 't1', uri: 'spotify:track:t1', name: 'Gabriela', artist: 'KATSEYE', image: 't.jpg' });
+});
+
+test('rangeLabel maps every Spotify time window to a Portuguese label', () => {
+  assert.equal(rangeLabel('short_term'), 'Últimas 4 semanas');
+  assert.equal(rangeLabel('medium_term'), 'Últimos 6 meses');
+  assert.equal(rangeLabel('long_term'), 'Desde sempre');
 });

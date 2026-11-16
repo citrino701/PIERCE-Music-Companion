@@ -90,6 +90,43 @@ export function mapPlaylists(items: Array<{
   }));
 }
 
+export interface SpotifyTopArtist {
+  id: string; name: string; image: string; genres: string[];
+}
+export interface SpotifyTopTrack {
+  id: string; uri: string; name: string; artist: string; image: string;
+}
+
+/** Top-artists JSON -> the shape the UI/share-card needs. Drops entries missing an id. */
+export function mapTopArtists(items: Array<{
+  id?: string | null; name?: string; genres?: string[]; images?: Array<{ url?: string }>;
+} | null | undefined>): SpotifyTopArtist[] {
+  return (items ?? []).filter((a): a is NonNullable<typeof a> => !!a?.id).map((a) => ({
+    id: a.id as string, name: a.name ?? 'Artista desconhecido', genres: a.genres ?? [], image: a.images?.[0]?.url ?? '',
+  }));
+}
+
+/** Top-tracks JSON -> the shape the UI/share-card needs. Drops entries missing an id. */
+export function mapTopTracks(items: Array<{
+  id?: string | null; uri?: string; name?: string;
+  artists?: Array<{ name?: string }>; album?: { images?: Array<{ url?: string }> };
+} | null | undefined>): SpotifyTopTrack[] {
+  return (items ?? []).filter((t): t is NonNullable<typeof t> => !!t?.id).map((t) => ({
+    id: t.id as string, uri: t.uri ?? `spotify:track:${t.id}`, name: t.name ?? 'Sem título',
+    artist: (t.artists ?? []).map((a) => a.name).filter(Boolean).join(', ') || 'Artista desconhecido',
+    image: t.album?.images?.[0]?.url ?? '',
+  }));
+}
+
+export type SpotifyTimeRange = 'short_term' | 'medium_term' | 'long_term';
+
+/** Human label for the Spotify top-items time windows, used in the UI and burned into the shareable card. */
+export function rangeLabel(range: SpotifyTimeRange): string {
+  if (range === 'short_term') return 'Últimas 4 semanas';
+  if (range === 'long_term') return 'Desde sempre';
+  return 'Últimos 6 meses';
+}
+
 export function withDevice(path: string, deviceId?: string | null): string {
   if (!deviceId) return path;
   return path + (path.includes('?') ? '&' : '?') + 'device_id=' + encodeURIComponent(deviceId);

@@ -5,8 +5,8 @@
  */
 import { pickBestLyricsRecord } from '../lyrics/lrc';
 import {
-  hasScopes, mapPlaylists, mapSearchTracks, mergeRefreshedToken, needsRefresh, pickDevice, withDevice,
-  type SpotifyDevice, type SpotifyPlaylistSummary, type SpotifySearchTrack,
+  hasScopes, mapPlaylists, mapSearchTracks, mapTopArtists, mapTopTracks, mergeRefreshedToken, needsRefresh, pickDevice, withDevice,
+  type SpotifyDevice, type SpotifyPlaylistSummary, type SpotifySearchTrack, type SpotifyTimeRange, type SpotifyTopArtist, type SpotifyTopTrack,
 } from './spotifyResilience';
 
 const CLIENT_ID = '22cbfb1b63b146b79892330d3838609f';
@@ -20,10 +20,12 @@ export const spotifyRedirectUri = (): string =>
   typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' ? `${window.location.origin}/` : WEB_REDIRECT_URI;
 const SCOPES = [
   'user-read-playback-state', 'user-read-currently-playing', 'user-modify-playback-state',
-  'playlist-read-private', 'user-library-read', 'user-library-modify',
+  'playlist-read-private', 'user-library-read', 'user-library-modify', 'user-top-read',
 ];
 /** Scopes needed only by search/playlists/like — added after those features shipped. An older saved session may predate them. */
 const LIBRARY_SCOPES = ['playlist-read-private', 'user-library-read', 'user-library-modify'];
+/** Scope needed only by the top-artists/top-tracks stats panel — added after it shipped. An older saved session may predate it. */
+const TOP_SCOPES = ['user-top-read'];
 const TOKEN_KEY = 'pierce.spotify.token';
 const VERIFIER_KEY = 'pierce.spotify.pkce.verifier';
 const STATE_KEY = 'pierce.spotify.oauth.state';
@@ -335,6 +337,28 @@ export async function setTrackSaved(trackId: string, saved: boolean): Promise<vo
   if (response.ok) return;
   if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
   throw new Error('Não foi possível atualizar seus favoritos (erro ' + response.status + ').');
+}
+
+/** True once the stored session covers the top-artists/top-tracks stats panel; false for a session logged in before it shipped. */
+export function hasTopScopes(): boolean {
+  const token = readStoredToken();
+  return !!token && hasScopes(token.scope, TOP_SCOPES);
+}
+
+/** The person's most-listened artists on Spotify, for the window they pick ("4 semanas" / "6 meses" / "desde sempre"). */
+export async function getTopArtists(timeRange: SpotifyTimeRange = 'medium_term', limit = 10): Promise<SpotifyTopArtist[]> {
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/top/artists?' + new URLSearchParams({ time_range: timeRange, limit: String(Math.min(50, limit)) }));
+  if (!response.ok) throw new Error('Não foi possível carregar seus artistas mais ouvidos (erro ' + response.status + ').');
+  const data = await response.json() as { items?: unknown[] };
+  return mapTopArtists(data.items as Parameters<typeof mapTopArtists>[0]);
+}
+
+/** The person's most-listened tracks on Spotify, for the window they pick. */
+export async function getTopTracks(timeRange: SpotifyTimeRange = 'medium_term', limit = 10): Promise<SpotifyTopTrack[]> {
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/top/tracks?' + new URLSearchParams({ time_range: timeRange, limit: String(Math.min(50, limit)) }));
+  if (!response.ok) throw new Error('Não foi possível carregar suas músicas mais ouvidas (erro ' + response.status + ').');
+  const data = await response.json() as { items?: unknown[] };
+  return mapTopTracks(data.items as Parameters<typeof mapTopTracks>[0]);
 }
 
 export function disconnectSpotify(): void {
