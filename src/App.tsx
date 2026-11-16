@@ -16,6 +16,7 @@ import { pauseSpotifyPlayback, resumeSpotifyPlayback, seekSpotifyPlayback, setSp
 import { LibrarySearchPanel } from './components/LibrarySearchPanel';
 import { LikeButton } from './components/LikeButton';
 import { StatsPanel } from './components/StatsPanel';
+import { TrackStoryPanel } from './components/TrackStoryPanel';
 import { hasSpotifySession } from './services/playback/SpotifyMetadataConnector';
 import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConnector';
 import { ReducedWidget } from './components/widget/ReducedWidget';
@@ -422,6 +423,7 @@ export default function App() {
       <LibrarySearchPanel connected={spotifyConnected} onPlayTrack={handlePlayTrackUri} onPlayPlaylist={handlePlayPlaylistUri} />
       <LikeButton connected={spotifyConnected} trackId={currentTrack.id.startsWith('spotify-') ? currentTrack.id.slice('spotify-'.length) : null} />
       <StatsPanel connected={spotifyConnected} />
+      <TrackStoryPanel track={currentTrack} />
       {pipWindow && createPortal(
         <ReducedWidget
           track={currentTrack}
