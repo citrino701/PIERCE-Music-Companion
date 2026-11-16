@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BarChart3, Disc3, Download, Share2, User, X } from 'lucide-react';
+import { BarChart3, Check, Disc3, Download, Share2, User, X } from 'lucide-react';
 import {
   beginSpotifyAuthorization, getTopArtists, getTopTracks, getWeeklyTop, hasTopScopes,
 } from '../services/playback/SpotifyMetadataConnector';
@@ -22,6 +22,8 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
   const [range, setRange] = useState<StatsRange>('medium_term');
   const [artists, setArtists] = useState<SpotifyTopArtist[] | null>(null);
   const [tracks, setTracks] = useState<SpotifyTopTrack[] | null>(null);
+  const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set());
+  const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -46,13 +48,29 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
       ? getWeeklyTop(10)
       : Promise.all([getTopArtists(range, 10), getTopTracks(range, 10)]).then(([a, t]) => ({ artists: a, tracks: t }));
     load
-      .then(({ artists: a, tracks: t }) => { setArtists(a); setTracks(t); })
+      .then(({ artists: a, tracks: t }) => {
+        setArtists(a); setTracks(t);
+        setSelectedArtists(new Set(a.slice(0, 5).map((x) => x.id)));
+        setSelectedTracks(new Set(t.slice(0, 5).map((x) => x.id)));
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Não foi possível carregar suas métricas.'))
       .finally(() => setLoading(false));
   }, [open, range, needsReconnect]);
 
-  const row = (rank: number, image: string, title: string, subtitle: string, key: string) => (
+  const MAX_SELECTABLE = 10;
+  const toggleSelected = (set: Set<string>, setSet: (s: Set<string>) => void, id: string) => {
+    const next = new Set(set);
+    if (next.has(id)) next.delete(id);
+    else { if (next.size >= MAX_SELECTABLE) return; next.add(id); }
+    setSet(next);
+  };
+
+  const row = (rank: number, image: string, title: string, subtitle: string, key: string, selected: boolean, onToggle: () => void) => (
     <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '7px 4px' }}>
+      <button type="button" onClick={onToggle} aria-pressed={selected} aria-label={selected ? 'Remover das métricas selecionadas' : 'Incluir nas métricas selecionadas'}
+        style={{ width: 18, height: 18, flex: 'none', borderRadius: 4, border: '1.5px solid ' + (selected ? '#111' : '#ccc'), background: selected ? '#111' : '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 }}>
+        {selected && <Check size={12} color="#fff" strokeWidth={3} />}
+      </button>
       <div style={{ width: 20, flex: 'none', font: "800 11px 'Arimo', sans-serif", color: '#aaa' }}>{String(rank).padStart(2, '0')}</div>
       {image ? <img src={image} alt="" style={{ width: 36, height: 36, objectFit: 'cover', flex: 'none', borderRadius: 4 }} />
         : <div style={{ width: 36, height: 36, flex: 'none', borderRadius: 4, background: '#eee', display: 'grid', placeItems: 'center' }}>{tab === 'artists' ? <User size={16} color="#999" /> : <Disc3 size={16} color="#999" />}</div>}
@@ -63,12 +81,16 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
     </div>
   );
 
-  const buildShareData = (): ShareCardData => ({
-    rangeLabel: rangeLabel(range),
-    generatedLabel: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
-    artists: (artists ?? []).slice(0, 5).map((a) => ({ name: a.name, subtitle: a.genres.slice(0, 2).join(', ') || 'Artista', image: a.image })),
-    tracks: (tracks ?? []).slice(0, 5).map((t) => ({ name: t.name, subtitle: t.artist, image: t.image })),
-  });
+  const buildShareData = (): ShareCardData => {
+    const pickedArtists = (artists ?? []).filter((a) => selectedArtists.has(a.id));
+    const pickedTracks = (tracks ?? []).filter((t) => selectedTracks.has(t.id));
+    return {
+      rangeLabel: rangeLabel(range),
+      generatedLabel: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+      artists: (pickedArtists.length > 0 ? pickedArtists : (artists ?? []).slice(0, 5)).map((a) => ({ name: a.name, subtitle: a.genres.slice(0, 2).join(', ') || 'Artista', image: a.image })),
+      tracks: (pickedTracks.length > 0 ? pickedTracks : (tracks ?? []).slice(0, 5)).map((t) => ({ name: t.name, subtitle: t.artist, image: t.image })),
+    };
+  };
 
   const openShare = async () => {
     setSharing(true); setShareError(null); setShareImg(null); setCopied(false);
@@ -148,11 +170,14 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
                 {loading && <div style={{ font: "400 12px 'Arimo', sans-serif", color: '#777', padding: '8px 4px' }}>Carregando…</div>}
                 {error && <div role="alert" style={{ font: "500 12px 'Arimo', sans-serif", color: '#b00020', padding: '8px 4px' }}>{error}</div>}
                 {!loading && !error && tab === 'artists' && artists?.length === 0 && <div style={{ font: "400 12px 'Arimo', sans-serif", color: '#777', padding: '8px 4px' }}>Sem dados suficientes ainda.</div>}
-                {!loading && tab === 'artists' && artists?.map((a, i) => row(i + 1, a.image, a.name, a.genres.slice(0, 2).join(', ') || '—', a.id))}
+                {!loading && tab === 'artists' && artists?.map((a, i) => row(i + 1, a.image, a.name, a.genres.slice(0, 2).join(', ') || '—', a.id, selectedArtists.has(a.id), () => toggleSelected(selectedArtists, setSelectedArtists, a.id)))}
                 {!loading && !error && tab === 'tracks' && tracks?.length === 0 && <div style={{ font: "400 12px 'Arimo', sans-serif", color: '#777', padding: '8px 4px' }}>Sem dados suficientes ainda.</div>}
-                {!loading && tab === 'tracks' && tracks?.map((t, i) => row(i + 1, t.image, t.name, t.artist, t.id))}
+                {!loading && tab === 'tracks' && tracks?.map((t, i) => row(i + 1, t.image, t.name, t.artist, t.id, selectedTracks.has(t.id), () => toggleSelected(selectedTracks, setSelectedTracks, t.id)))}
               </div>
-              <div style={{ padding: '4px 10px 10px' }}>
+              <div style={{ padding: '0 10px 10px' }}>
+                <div style={{ font: "500 10px 'Arimo', sans-serif", color: '#999', padding: '2px 4px 6px' }}>
+                  {selectedArtists.size} artista(s) e {selectedTracks.size} música(s) selecionadas (toque no ✓ para marcar/desmarcar, até {MAX_SELECTABLE} de cada)
+                </div>
                 <button type="button" disabled={!artists || !tracks} onClick={openShare} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 12px',
                   background: '#111', color: '#fff', border: 'none', cursor: artists && tracks ? 'pointer' : 'default',

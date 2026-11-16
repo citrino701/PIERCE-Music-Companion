@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ellipsize } from './shareCard';
+import { ellipsize, sectionHeight, computeCardHeight } from './shareCard';
+
+function items(n: number) {
+  return Array.from({ length: n }, (_, i) => ({ name: `Item ${i}`, subtitle: 'x', image: '' }));
+}
 
 function fakeCtx(widthPerChar: number) {
   return { measureText: (s: string) => ({ width: s.length * widthPerChar }) };
@@ -20,4 +24,25 @@ test('ellipsize never returns something wider than requested', () => {
   const ctx = fakeCtx(10);
   const result = ellipsize(ctx, 'Outro nome gigante de uma banda qualquer', 50);
   assert.ok(ctx.measureText(result).width <= 50 || result === '…');
+});
+
+test('computeCardHeight grows with item count instead of staying fixed', () => {
+  const small = computeCardHeight({ artists: items(5), tracks: items(5) });
+  const big = computeCardHeight({ artists: items(10), tracks: items(10) });
+  assert.ok(big > small, 'a card with more rows must be taller, not clipped at a fixed height');
+});
+
+test('computeCardHeight never understates the actual content (no room for overlap)', () => {
+  for (const n of [0, 1, 5, 8, 10, 15]) {
+    const data = { artists: items(n), tracks: items(n) };
+    const height = computeCardHeight(data);
+    const cappedN = Math.min(n, 10);
+    const contentEnd = 248 + sectionHeight(cappedN) + 36 + sectionHeight(cappedN);
+    assert.ok(height > contentEnd, `card height must leave room below the last row for n=${n}`);
+  }
+});
+
+test('sectionHeight for zero items is still positive (room for the "sem dados" line)', () => {
+  assert.ok(sectionHeight(0) > 0);
+  assert.ok(sectionHeight(5) > sectionHeight(0));
 });
