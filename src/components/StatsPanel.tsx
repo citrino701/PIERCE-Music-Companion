@@ -5,7 +5,7 @@ import {
   beginSpotifyAuthorization, getTopArtists, getTopTracks, getWeeklyTop, hasTopScopes,
 } from '../services/playback/SpotifyMetadataConnector';
 import { rangeLabel, type StatsRange, type SpotifyTopArtist, type SpotifyTopTrack } from '../services/playback/spotifyResilience';
-import { renderShareCard, type ShareCardData } from '../services/stats/shareCard';
+import { renderShareCard, renderHeroShareCard, type ShareCardData, type HeroCardData } from '../services/stats/shareCard';
 
 interface Props {
   connected: boolean;
@@ -65,7 +65,7 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
     setSet(next);
   };
 
-  const row = (rank: number, image: string, title: string, subtitle: string, key: string, selected: boolean, onToggle: () => void) => (
+  const row = (rank: number, image: string, title: string, subtitle: string, key: string, selected: boolean, onToggle: () => void, onShareOne: () => void) => (
     <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '7px 4px' }}>
       <button type="button" onClick={onToggle} aria-pressed={selected} aria-label={selected ? 'Remover das métricas selecionadas' : 'Incluir nas métricas selecionadas'}
         style={{ width: 18, height: 18, flex: 'none', borderRadius: 4, border: '1.5px solid ' + (selected ? '#111' : '#ccc'), background: selected ? '#111' : '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 }}>
@@ -74,21 +74,30 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
       <div style={{ width: 20, flex: 'none', font: "800 11px 'Arimo', sans-serif", color: '#aaa' }}>{String(rank).padStart(2, '0')}</div>
       {image ? <img src={image} alt="" style={{ width: 36, height: 36, objectFit: 'cover', flex: 'none', borderRadius: 4 }} />
         : <div style={{ width: 36, height: 36, flex: 'none', borderRadius: 4, background: '#eee', display: 'grid', placeItems: 'center' }}>{tab === 'artists' ? <User size={16} color="#999" /> : <Disc3 size={16} color="#999" />}</div>}
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ font: "600 13px 'Arimo', sans-serif", color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
         <div style={{ font: "400 11px 'Arimo', sans-serif", color: '#777', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{subtitle}</div>
       </div>
+      <button type="button" onClick={onShareOne} aria-label="Compartilhar só esse" title="Compartilhar só esse"
+        style={{ flex: 'none', padding: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#999' }}>
+        <Share2 size={13} />
+      </button>
     </div>
   );
 
+  /** Shares ONLY the category currently open (artists or tracks) — never both stacked together. */
   const buildShareData = (): ShareCardData => {
-    const pickedArtists = (artists ?? []).filter((a) => selectedArtists.has(a.id));
-    const pickedTracks = (tracks ?? []).filter((t) => selectedTracks.has(t.id));
+    const source = tab === 'artists' ? (artists ?? []) : (tracks ?? []);
+    const selected = tab === 'artists' ? selectedArtists : selectedTracks;
+    const picked = source.filter((x) => selected.has(x.id));
+    const final = picked.length > 0 ? picked : source.slice(0, 5);
     return {
+      kind: tab,
       rangeLabel: rangeLabel(range),
       generatedLabel: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
-      artists: (pickedArtists.length > 0 ? pickedArtists : (artists ?? []).slice(0, 5)).map((a) => ({ name: a.name, subtitle: a.genres.slice(0, 2).join(', ') || 'Artista', image: a.image })),
-      tracks: (pickedTracks.length > 0 ? pickedTracks : (tracks ?? []).slice(0, 5)).map((t) => ({ name: t.name, subtitle: t.artist, image: t.image })),
+      items: final.map((x) => tab === 'artists'
+        ? { name: x.name, subtitle: (x as SpotifyTopArtist).genres.slice(0, 2).join(', ') || 'Artista', image: x.image }
+        : { name: x.name, subtitle: (x as SpotifyTopTrack).artist, image: x.image }),
     };
   };
 
@@ -96,6 +105,17 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
     setSharing(true); setShareError(null); setShareImg(null); setCopied(false);
     try {
       const canvas = await renderShareCard(buildShareData());
+      canvasRef.current = canvas;
+      setShareImg(canvas.toDataURL('image/png'));
+    } catch {
+      setShareError('Não foi possível montar a imagem.');
+    }
+  };
+
+  const openHeroShare = async (itemKind: HeroCardData['itemKind'], rank: number, name: string, subtitle: string, image: string) => {
+    setSharing(true); setShareError(null); setShareImg(null); setCopied(false);
+    try {
+      const canvas = await renderHeroShareCard({ itemKind, rank, name, subtitle, image, rangeLabel: rangeLabel(range), generatedLabel: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) });
       canvasRef.current = canvas;
       setShareImg(canvas.toDataURL('image/png'));
     } catch {
@@ -170,19 +190,19 @@ export const StatsPanel: React.FC<Props> = ({ connected }) => {
                 {loading && <div style={{ font: "400 12px 'Arimo', sans-serif", color: '#777', padding: '8px 4px' }}>Carregando…</div>}
                 {error && <div role="alert" style={{ font: "500 12px 'Arimo', sans-serif", color: '#b00020', padding: '8px 4px' }}>{error}</div>}
                 {!loading && !error && tab === 'artists' && artists?.length === 0 && <div style={{ font: "400 12px 'Arimo', sans-serif", color: '#777', padding: '8px 4px' }}>Sem dados suficientes ainda.</div>}
-                {!loading && tab === 'artists' && artists?.map((a, i) => row(i + 1, a.image, a.name, a.genres.slice(0, 2).join(', ') || '—', a.id, selectedArtists.has(a.id), () => toggleSelected(selectedArtists, setSelectedArtists, a.id)))}
+                {!loading && tab === 'artists' && artists?.map((a, i) => row(i + 1, a.image, a.name, a.genres.slice(0, 2).join(', ') || '—', a.id, selectedArtists.has(a.id), () => toggleSelected(selectedArtists, setSelectedArtists, a.id), () => openHeroShare('artist', i + 1, a.name, a.genres.slice(0, 2).join(', ') || 'Artista', a.image)))}
                 {!loading && !error && tab === 'tracks' && tracks?.length === 0 && <div style={{ font: "400 12px 'Arimo', sans-serif", color: '#777', padding: '8px 4px' }}>Sem dados suficientes ainda.</div>}
-                {!loading && tab === 'tracks' && tracks?.map((t, i) => row(i + 1, t.image, t.name, t.artist, t.id, selectedTracks.has(t.id), () => toggleSelected(selectedTracks, setSelectedTracks, t.id)))}
+                {!loading && tab === 'tracks' && tracks?.map((t, i) => row(i + 1, t.image, t.name, t.artist, t.id, selectedTracks.has(t.id), () => toggleSelected(selectedTracks, setSelectedTracks, t.id), () => openHeroShare('track', i + 1, t.name, t.artist, t.image)))}
               </div>
               <div style={{ padding: '0 10px 10px' }}>
                 <div style={{ font: "500 10px 'Arimo', sans-serif", color: '#999', padding: '2px 4px 6px' }}>
-                  {selectedArtists.size} artista(s) e {selectedTracks.size} música(s) selecionadas (toque no ✓ para marcar/desmarcar, até {MAX_SELECTABLE} de cada)
+                  {(tab === 'artists' ? selectedArtists.size : selectedTracks.size)} {tab === 'artists' ? 'artista(s)' : 'música(s)'} selecionado(s) (✓ pra marcar, até {MAX_SELECTABLE}) — ou toque no ícone de compartilhar de uma linha pra mandar só aquela
                 </div>
-                <button type="button" disabled={!artists || !tracks} onClick={openShare} style={{
+                <button type="button" disabled={tab === 'artists' ? !artists : !tracks} onClick={openShare} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 12px',
-                  background: '#111', color: '#fff', border: 'none', cursor: artists && tracks ? 'pointer' : 'default',
-                  opacity: artists && tracks ? 1 : 0.4, font: "700 12px 'Arimo', sans-serif",
-                }}><Share2 size={13} /> Compartilhar imagem</button>
+                  background: '#111', color: '#fff', border: 'none', cursor: (tab === 'artists' ? artists : tracks) ? 'pointer' : 'default',
+                  opacity: (tab === 'artists' ? artists : tracks) ? 1 : 0.4, font: "700 12px 'Arimo', sans-serif",
+                }}><Share2 size={13} /> Compartilhar {tab === 'artists' ? 'artistas' : 'músicas'}</button>
               </div>
             </>
           )}
