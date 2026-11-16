@@ -5,8 +5,8 @@
  */
 import { pickBestLyricsRecord } from '../lyrics/lrc';
 import {
-  hasScopes, mapPlaylists, mapSearchTracks, mergeRefreshedToken, needsRefresh, pickDevice, withDevice,
-  type SpotifyDevice, type SpotifyPlaylistSummary, type SpotifySearchTrack,
+  hasScopes, mapPlaylists, mapSearchTracks, mapTopArtists, mapTopTracks, mergeRefreshedToken, needsRefresh, pickDevice, tallyRecentlyPlayed, withDevice,
+  type RecentlyPlayedItem, type SpotifyDevice, type SpotifyPlaylistSummary, type SpotifySearchTrack, type SpotifyTimeRange, type SpotifyTopArtist, type SpotifyTopTrack,
 } from './spotifyResilience';
 
 const CLIENT_ID = '22cbfb1b63b146b79892330d3838609f';
@@ -20,10 +20,12 @@ export const spotifyRedirectUri = (): string =>
   typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' ? `${window.location.origin}/` : WEB_REDIRECT_URI;
 const SCOPES = [
   'user-read-playback-state', 'user-read-currently-playing', 'user-modify-playback-state',
-  'playlist-read-private', 'user-library-read', 'user-library-modify',
+  'playlist-read-private', 'user-library-read', 'user-library-modify', 'user-top-read', 'user-read-recently-played',
 ];
 /** Scopes needed only by search/playlists/like — added after those features shipped. An older saved session may predate them. */
 const LIBRARY_SCOPES = ['playlist-read-private', 'user-library-read', 'user-library-modify'];
+/** Scopes needed only by the stats panel (top artists/tracks, plus the "última semana" window derived from recent plays) — added after it shipped. An older saved session may predate them. */
+const TOP_SCOPES = ['user-top-read', 'user-read-recently-played'];
 const TOKEN_KEY = 'pierce.spotify.token';
 const VERIFIER_KEY = 'pierce.spotify.pkce.verifier';
 const STATE_KEY = 'pierce.spotify.oauth.state';
@@ -335,6 +337,63 @@ export async function setTrackSaved(trackId: string, saved: boolean): Promise<vo
   if (response.ok) return;
   if (response.status === 401) throw new Error('A sessão Spotify expirou. Conecte novamente.');
   throw new Error('Não foi possível atualizar seus favoritos (erro ' + response.status + ').');
+}
+
+/** True once the stored session covers the top-artists/top-tracks stats panel; false for a session logged in before it shipped. */
+export function hasTopScopes(): boolean {
+  const token = readStoredToken();
+  return !!token && hasScopes(token.scope, TOP_SCOPES);
+}
+
+/** The person's most-listened artists on Spotify, for the window they pick ("4 semanas" / "6 meses" / "desde sempre"). */
+export async function getTopArtists(timeRange: SpotifyTimeRange = 'medium_term', limit = 10): Promise<SpotifyTopArtist[]> {
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/top/artists?' + new URLSearchParams({ time_range: timeRange, limit: String(Math.min(50, limit)) }));
+  if (!response.ok) throw new Error('Não foi possível carregar seus artistas mais ouvidos (erro ' + response.status + ').');
+  const data = await response.json() as { items?: unknown[] };
+  return mapTopArtists(data.items as Parameters<typeof mapTopArtists>[0]);
+}
+
+/** The person's most-listened tracks on Spotify, for the window they pick. */
+export async function getTopTracks(timeRange: SpotifyTimeRange = 'medium_term', limit = 10): Promise<SpotifyTopTrack[]> {
+  const response = await spotifyFetch('https://api.spotify.com/v1/me/top/tracks?' + new URLSearchParams({ time_range: timeRange, limit: String(Math.min(50, limit)) }));
+  if (!response.ok) throw new Error('Não foi possível carregar suas músicas mais ouvidas (erro ' + response.status + ').');
+  const data = await response.json() as { items?: unknown[] };
+  return mapTopTracks(data.items as Parameters<typeof mapTopTracks>[0]);
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const RECENTLY_PLAYED_PAGE = 50;
+
+/**
+ * Pages back through "recently played" until an item older than `cutoffMs` shows up (or Spotify runs out
+ * of history). Spotify only keeps roughly the last 50 plays per page and doesn't promise full week coverage —
+ * for a light listener this may come up short of 7 days, which getWeeklyTop's caller surfaces honestly.
+ */
+async function fetchRecentlyPlayedSince(cutoffMs: number, maxPages = 4): Promise<RecentlyPlayedItem[]> {
+  const items: RecentlyPlayedItem[] = [];
+  let before: number | undefined;
+  for (let page = 0; page < maxPages; page += 1) {
+    const params = new URLSearchParams({ limit: String(RECENTLY_PLAYED_PAGE) });
+    if (before) params.set('before', String(before));
+    const response = await spotifyFetch('https://api.spotify.com/v1/me/player/recently-played?' + params);
+    if (!response.ok) throw new Error('Não foi possível carregar seu histórico recente (erro ' + response.status + ').');
+    const data = await response.json() as { items?: RecentlyPlayedItem[] };
+    const batch = data.items ?? [];
+    if (batch.length === 0) break;
+    items.push(...batch);
+    const oldestPlayedAt = batch[batch.length - 1]?.played_at;
+    const oldestMs = oldestPlayedAt ? Date.parse(oldestPlayedAt) : NaN;
+    if (!Number.isFinite(oldestMs) || oldestMs < cutoffMs) break;
+    before = oldestMs;
+  }
+  return items;
+}
+
+/** Top artists/tracks for the last 7 days, counted from play history (Spotify has no weekly top-items endpoint). */
+export async function getWeeklyTop(limit = 10): Promise<{ artists: SpotifyTopArtist[]; tracks: SpotifyTopTrack[] }> {
+  const cutoff = Date.now() - WEEK_MS;
+  const items = await fetchRecentlyPlayedSince(cutoff);
+  return tallyRecentlyPlayed(items, cutoff, limit);
 }
 
 export function disconnectSpotify(): void {
