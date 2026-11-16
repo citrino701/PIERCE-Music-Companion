@@ -423,7 +423,7 @@ export default function App() {
       <LibrarySearchPanel connected={spotifyConnected} onPlayTrack={handlePlayTrackUri} onPlayPlaylist={handlePlayPlaylistUri} />
       <LikeButton connected={spotifyConnected} trackId={currentTrack.id.startsWith('spotify-') ? currentTrack.id.slice('spotify-'.length) : null} />
       <StatsPanel connected={spotifyConnected} />
-      <TrackStoryPanel track={currentTrack} />
+      <TrackStoryPanel track={currentTrack} lyricsText={lyricsText} />
       {pipWindow && createPortal(
         <ReducedWidget
           track={currentTrack}

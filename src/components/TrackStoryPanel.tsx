@@ -11,6 +11,11 @@ const TEMPLATES: { id: StoryTemplate; label: string }[] = [
 
 interface Props {
   track: TrackData;
+  /**
+   * Plain-text fallback for tracks that have lyrics but no line-by-line sync (so `track.lyrics` is empty) —
+   * without this, the panel used to hide entirely for any track whose lyrics aren't synced moment-to-moment.
+   */
+  lyricsText?: string | null;
 }
 
 const MAX_LINES = 8;
@@ -20,7 +25,7 @@ const MAX_LINES = 8;
  * which sung lines to feature (manually — never auto-picked), and we render a vertical card with a
  * different visual identity from the metrics share card (dark/poster instead of cream/editorial).
  */
-export const TrackStoryPanel: React.FC<Props> = ({ track }) => {
+export const TrackStoryPanel: React.FC<Props> = ({ track, lyricsText }) => {
   const [open, setOpen] = useState(false);
   const [template, setTemplate] = useState<StoryTemplate>('poster');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -31,7 +36,10 @@ export const TrackStoryPanel: React.FC<Props> = ({ track }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const root = useRef<HTMLDivElement>(null);
 
-  const lines = track.lyrics.filter((l) => l.text.trim() !== '');
+  const synced = track.lyrics.filter((l) => l.text.trim() !== '').map((l) => ({ id: l.id, text: l.text }));
+  const plainText = lyricsText && lyricsText !== 'Faixa instrumental.' ? lyricsText : '';
+  const plain = plainText.split(/\r?\n/).map((t) => t.trim()).filter(Boolean).map((text, i) => ({ id: `plain-${i}`, text }));
+  const lines = synced.length > 0 ? synced : plain;
 
   useEffect(() => { setSelected(new Set()); setOpen(false); }, [track.id]);
 
