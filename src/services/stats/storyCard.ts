@@ -3,13 +3,18 @@
  * picked lyric excerpt — never auto-picked. Two selectable templates, each modelled on a different kind
  * of lyric poster:
  *   - 'poster': a bold solid-colour field, big condensed playful caps type for the excerpt, the cover art
- *     as a small inset photo, and the track title in the same oversized type at the bottom.
+ *     as a small inset photo (shape picked per-track — square, circle, diamond or a hand-drawn blob), and
+ *     the track title in the same oversized type at the bottom.
  *   - 'tags':   the cover art full-bleed as the background, with each word of the excerpt scattered across
- *     it in its own small colour tag.
+ *     it — set in the SAME serif the app's own lyric view uses (Instrument Serif), mixing big plain words
+ *     with small coloured pill-tags, scattered at random sizes/angles rather than in tidy rows, plus a
+ *     corner ASCII flourish (with a little chromatic-aberration fringe) and a vignette.
  * In both, the type colour is the track's own dominant colour (the same one the Pontilhado/Vidro views use),
  * not a fixed palette — so every track's stories card looks like that track. Plain Canvas 2D, no dependency.
  */
 import { getTrackPalette, INK } from '../palette/trackPalette';
+import { liveCover } from '../colagem/colagem';
+import { hashString } from '../palette/trackPalette';
 
 export type StoryTemplate = 'poster' | 'tags';
 
@@ -26,6 +31,12 @@ export interface StoryCardData {
 export const STORY_WIDTH = 1080;
 export const STORY_HEIGHT = 1920;
 const PAD = 72;
+const SERIF = "'Instrument Serif', Georgia, serif";
+
+/** Deterministic 0..1 pseudo-random from an integer seed — reproducible per track, no RNG import needed. */
+function rand01(seed: number): number {
+  return (((seed + 1) * 2654435761) >>> 0) % 1000 / 1000;
+}
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -55,6 +66,25 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/** A hand-drawn-looking irregular blob of roughly radius `r`, deterministic from `seed` — one of the poster's cover shapes. */
+function blobPath(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, seed: number): void {
+  const n = 10;
+  const pts = Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2;
+    const rad = r * (0.76 + rand01(seed + i * 17) * 0.4);
+    return { x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad };
+  });
+  ctx.beginPath();
+  const mid = (a: { x: number; y: number }, b: { x: number; y: number }) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const start = mid(pts[n - 1], pts[0]);
+  ctx.moveTo(start.x, start.y);
+  for (let i = 0; i < n; i++) {
+    const next = mid(pts[i], pts[(i + 1) % n]);
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, next.x, next.y);
+  }
   ctx.closePath();
 }
 
@@ -94,6 +124,36 @@ function condensedWidth(ctx: CanvasRenderingContext2D, text: string, weight: num
   return ctx.measureText(text).width * squeeze;
 }
 
+/** The house signature: a tiny plasma-ASCII stamp (same generator as the "capa viva" live cover art), with a
+ * faint red/cyan fringe offset either side to read as a little chromatic-aberration glitch. */
+function asciiCornerStamp(ctx: CanvasRenderingContext2D, x: number, y: number, seed: number, align: 'left' | 'right' = 'left'): void {
+  const art = liveCover(seed * 0.4, seed, 12, 4);
+  const linesArr = art.split('\n');
+  ctx.save();
+  ctx.font = "11px 'Courier New', monospace";
+  ctx.textAlign = align;
+  ctx.globalCompositeOperation = 'screen';
+  const draw = (dx: number, color: string) => {
+    ctx.fillStyle = color;
+    linesArr.forEach((line, i) => ctx.fillText(line, x + dx, y + i * 13));
+  };
+  draw(-2, 'rgba(255,60,90,.5)');
+  draw(2, 'rgba(60,200,255,.5)');
+  draw(0, 'rgba(255,255,255,.4)');
+  ctx.restore();
+}
+
+/** Soft radial vignette — darkens the corners a touch so scattered text/tags always have somewhere to sit. */
+function drawVignette(ctx: CanvasRenderingContext2D, w: number, h: number, strength = 0.5): void {
+  const grad = ctx.createRadialGradient(w / 2, h / 2, h * 0.32, w / 2, h / 2, h * 0.78);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, `rgba(0,0,0,${strength})`);
+  ctx.save();
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
 // ---------------------------------------------------------------------------
 // 'poster' template — bold colour field, big playful caps, cover as a small inset photo
 // ---------------------------------------------------------------------------
@@ -118,8 +178,39 @@ const POSTER_TITLE_ESTIMATE = 110;
 const POSTER_TOP_MARGIN = 130;
 const POSTER_FOOTER_RESERVE = 150;
 
+/** Cover shapes the poster picks from, one per track (deterministic), so not every card is the same tilted square. */
+type CoverShape = 'square' | 'circle' | 'diamond' | 'blob';
+const COVER_SHAPES: CoverShape[] = ['square', 'circle', 'diamond', 'blob'];
+
+function clipCoverShape(ctx: CanvasRenderingContext2D, shape: CoverShape, size: number, seed: number): void {
+  const half = size / 2;
+  switch (shape) {
+    case 'circle':
+      ctx.beginPath();
+      ctx.arc(half, half, half, 0, Math.PI * 2);
+      ctx.closePath();
+      break;
+    case 'diamond': {
+      const r = half * 1.12;
+      ctx.beginPath();
+      ctx.moveTo(half, half - r);
+      ctx.lineTo(half + r, half);
+      ctx.lineTo(half, half + r);
+      ctx.lineTo(half - r, half);
+      ctx.closePath();
+      break;
+    }
+    case 'blob':
+      blobPath(ctx, half, half, half * 1.02, seed);
+      break;
+    default:
+      roundRect(ctx, 0, 0, size, size, 10);
+  }
+}
+
 async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, img: HTMLImageElement | null): Promise<void> {
   const palette = await getTrackPalette({ id: `${data.title}:${data.artist}`, coverImage: data.image });
+  const seed = hashString(`${data.title}:${data.artist}`);
 
   // near-black field: `palette.a` is tuned (in trackPalette.ts) for contrast against white OR this exact
   // ink, so pairing it with any other background risks the text blending in, as deep (same hue as `a`) did.
@@ -153,19 +244,22 @@ async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, 
     ly += lineH;
   });
 
-  // cover inset, small, rotated — "a imagem representando a capa"
+  // cover inset — shape picked per track (square / circle / diamond / blob), "brincando com formatos", at a
+  // deterministic-but-varied tilt so not every card tilts the same -3°.
   const coverX = PAD;
   const coverY = ly - size * 0.8 + POSTER_GAP1;
+  const shape = COVER_SHAPES[seed % COVER_SHAPES.length];
+  const tiltDeg = -8 + rand01(seed) * 16;
   if (img) {
     ctx.save();
     ctx.translate(coverX + coverSize / 2, coverY + coverSize / 2);
-    ctx.rotate(-3 * (Math.PI / 180));
+    ctx.rotate(tiltDeg * (Math.PI / 180));
     ctx.translate(-coverSize / 2, -coverSize / 2);
-    roundRect(ctx, 0, 0, coverSize, coverSize, 10);
+    clipCoverShape(ctx, shape, coverSize, seed);
     ctx.save(); ctx.clip(); drawCover(ctx, img, 0, 0, coverSize, coverSize); ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,.9)';
     ctx.lineWidth = 5;
-    roundRect(ctx, 0, 0, coverSize, coverSize, 10);
+    clipCoverShape(ctx, shape, coverSize, seed);
     ctx.stroke();
     ctx.restore();
   }
@@ -178,6 +272,21 @@ async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, 
     ctx.arc(coverX + coverSize + 70 + Math.cos(a) * 22, coverY + 60 + Math.sin(a) * 22, 5, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // a second, smaller playful shape scattered near the cover — pure decoration, varies per track
+  const trinketShape = COVER_SHAPES[(seed + 1) % COVER_SHAPES.length];
+  const trinketSize = coverSize * 0.22;
+  ctx.save();
+  ctx.translate(coverX + coverSize + 140 + rand01(seed + 3) * 40, coverY + coverSize - trinketSize * 0.6);
+  ctx.rotate(rand01(seed + 5) * Math.PI * 2);
+  ctx.translate(-trinketSize / 2, -trinketSize / 2);
+  clipCoverShape(ctx, trinketShape, trinketSize, seed + 9);
+  ctx.fillStyle = hexWithAlpha(palette.a, 0.5);
+  ctx.fill();
+  ctx.restore();
+
+  // house signature, top-right corner, with its little chromatic-aberration fringe
+  asciiCornerStamp(ctx, STORY_WIDTH - PAD, 70, seed, 'right');
 
   // artist, small italic script-ish accent
   ctx.fillStyle = 'rgba(255,255,255,.85)';
@@ -201,12 +310,22 @@ async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, 
   ctx.fillText('PiErCe', PAD, footY);
 }
 
+function hexWithAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 // ---------------------------------------------------------------------------
-// 'tags' template — cover photo full-bleed, each word of the excerpt as its own scattered tag
+// 'tags' template — cover photo full-bleed, lyric words scattered in the app's own serif, mixing big plain
+// words with small colour pill-tags — not a tidy grid of uniform boxes.
 // ---------------------------------------------------------------------------
+
+interface TagWord { text: string; isTag: boolean; size: number; rot: number; colorAccent: boolean; w: number; line: number }
 
 async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, img: HTMLImageElement | null): Promise<void> {
   const palette = await getTrackPalette({ id: `${data.title}:${data.artist}`, coverImage: data.image });
+  const seed = hashString(`${data.title}:${data.artist}`);
 
   if (img) {
     drawCover(ctx, img, 0, 0, STORY_WIDTH, STORY_HEIGHT);
@@ -215,6 +334,8 @@ async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, im
     ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
   }
 
+  drawVignette(ctx, STORY_WIDTH, STORY_HEIGHT, 0.46);
+
   // bottom gradient so the footer always reads
   const fade = ctx.createLinearGradient(0, STORY_HEIGHT - 460, 0, STORY_HEIGHT);
   fade.addColorStop(0, 'rgba(0,0,0,0)');
@@ -222,66 +343,121 @@ async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, im
   ctx.fillStyle = fade;
   ctx.fillRect(0, STORY_HEIGHT - 460, STORY_WIDTH, 460);
 
-  // No hard cap on word count — a fixed slice(0, 10) used to silently drop whatever didn't fit, which is how
-  // the last words of a longer excerpt (e.g. 6 of the allowed 8 lines) went missing. Instead, the whole
-  // excerpt is always shown: it's laid out as wrapped rows of tags (several words per row, like the torn-
-  // collage reference) and the biggest tag size that lets every word fit in the available vertical space wins.
-  const words = data.lines.flatMap((l) => l.trim().split(/\s+/).filter(Boolean));
-  const textColor = palette.onA;
-  const topY = 240;
+  asciiCornerStamp(ctx, PAD, 68, seed, 'left');
+
+  // No hard cap on word count — a fixed slice used to silently drop whatever didn't fit. Every word of the
+  // excerpt always renders, in the app's own lyric typeface (Instrument Serif) — most words set big and
+  // plain straight over the photo (with a dark halo for legibility), roughly a third picked out as small
+  // coloured pill-tags (the same "sung word" treatment the real lyric view uses), each at its own slight
+  // random size and tilt so the whole thing reads as a loose, hand-scattered collage, not a grid.
+  //
+  // Each word remembers which SELECTED LINE it came from (`line`), and a row never mixes words from two
+  // different lines — a wrapped line just continues onto the next row, but a new selected line always
+  // starts its own fresh row, with extra breathing room before it. Without this, a scattered word-cloud
+  // reads as one jumbled mess with no sense of where one picked verse ends and the next begins.
+  const wordLines = data.lines.map((l) => l.trim().split(/\s+/).filter(Boolean));
+  const topY = 230;
   const bottomY = STORY_HEIGHT - 560;
   const usableW = STORY_WIDTH - PAD * 2;
 
-  const TAG_TIERS = [
-    { size: 64, padX: 26, padY: 20, gap: 18, rowH: 106 },
-    { size: 54, padX: 24, padY: 18, gap: 16, rowH: 92 },
-    { size: 46, padX: 22, padY: 16, gap: 14, rowH: 80 },
-    { size: 38, padX: 20, padY: 14, gap: 12, rowH: 68 },
-    { size: 32, padX: 18, padY: 12, gap: 10, rowH: 58 },
-    { size: 26, padX: 16, padY: 10, gap: 9, rowH: 48 },
-  ];
+  const buildWords = (scale: number): TagWord[] => {
+    let i = 0;
+    const out: TagWord[] = [];
+    wordLines.forEach((lineWords, line) => {
+      lineWords.forEach((text) => {
+        const isTag = rand01(seed + i * 11) < 0.32;
+        const base = isTag ? 34 + rand01(seed + i * 5) * 14 : 56 + rand01(seed + i * 3) * 26;
+        const size = Math.max(18, base * scale);
+        const rot = (rand01(seed + i * 19) - 0.5) * (isTag ? 10 : 8);
+        const colorAccent = !isTag && rand01(seed + i * 23) < 0.22;
+        ctx.font = `400 ${size}px ${SERIF}`;
+        const w = ctx.measureText(text).width;
+        out.push({ text, isTag, size, rot, colorAccent, w, line });
+        i++;
+      });
+    });
+    return out;
+  };
 
-  const wrapIntoRows = (size: number, padX: number, gap: number): string[][] => {
-    ctx.font = `800 ${size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`;
-    const rows: string[][] = [];
-    let row: string[] = [];
+  const wrapIntoRows = (list: TagWord[]): { row: TagWord[]; h: number; stanzaStart: boolean }[] => {
+    const rows: { row: TagWord[]; h: number; stanzaStart: boolean }[] = [];
+    let row: TagWord[] = [];
     let rowW = 0;
-    for (const w of words) {
-      const tagW = ctx.measureText(w).width + padX * 2;
-      const extra = row.length ? gap + tagW : tagW;
-      if (row.length && rowW + extra > usableW) { rows.push(row); row = []; rowW = 0; }
-      row.push(w);
-      rowW += row.length === 1 ? tagW : gap + tagW;
+    let rowH = 0;
+    const gap = 22;
+    const flush = () => { if (row.length) { rows.push({ row, h: rowH, stanzaStart: false }); row = []; rowW = 0; rowH = 0; } };
+    let prevLine = -1;
+    for (const tw of list) {
+      const boxW = tw.w + (tw.isTag ? 44 : 10);
+      const newStanza = tw.line !== prevLine;
+      const extra = row.length ? gap + boxW : boxW;
+      if (row.length && (newStanza || rowW + extra > usableW)) flush();
+      row.push(tw);
+      rowW += row.length === 1 ? boxW : gap + boxW;
+      rowH = Math.max(rowH, tw.size * (tw.isTag ? 1.5 : 1.3));
+      prevLine = tw.line;
     }
-    if (row.length) rows.push(row);
+    flush();
+    // Mark the first row of each new selected line so rendering can give it extra breathing room above it.
+    let lastLine = -2;
+    rows.forEach((r) => {
+      const firstLine = r.row[0].line;
+      r.stanzaStart = firstLine !== lastLine;
+      lastLine = firstLine;
+    });
     return rows;
   };
 
-  let tier = TAG_TIERS[TAG_TIERS.length - 1];
-  let rows = wrapIntoRows(tier.size, tier.padX, tier.gap);
-  for (const t of TAG_TIERS) {
-    const candidateRows = wrapIntoRows(t.size, t.padX, t.gap);
-    if (candidateRows.length * t.rowH <= bottomY - topY) { tier = t; rows = candidateRows; break; }
-    tier = t;
-    rows = candidateRows;
-  }
+  const rowGap = 14;
+  const stanzaGap = 44;
+  const gapAbove = (r: { stanzaStart: boolean }, idx: number) => (idx === 0 ? 0 : r.stanzaStart ? stanzaGap : rowGap);
 
-  ctx.font = `800 ${tier.size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`;
-  rows.forEach((row, ri) => {
-    const rowJitter = (((ri + 1) * 2654435761) >>> 0) % 1000 / 1000;
-    const rowWidth = row.reduce((sum, w, i) => sum + ctx.measureText(w).width + tier.padX * 2 + (i ? tier.gap : 0), 0);
-    let x = PAD + Math.max(0, (usableW - rowWidth)) * (0.15 + rowJitter * 0.3);
-    const y = topY + ri * tier.rowH;
-    row.forEach((w) => {
-      const tw = ctx.measureText(w).width;
-      ctx.fillStyle = palette.a;
-      roundRect(ctx, x, y - tier.size, tw + tier.padX * 2, tier.size + tier.padY, 8);
-      ctx.fill();
-      ctx.fillStyle = textColor;
-      ctx.fillText(w, x + tier.padX, y - tier.size * 0.22);
-      x += tw + tier.padX * 2 + tier.gap;
+  let scale = 1;
+  let rows = wrapIntoRows(buildWords(scale));
+  let totalH = rows.reduce((s, r, i) => s + r.h + gapAbove(r, i), 0);
+  const availH = bottomY - topY;
+  if (totalH > availH && totalH > 0) {
+    scale = Math.max(0.42, scale * (availH / totalH));
+    rows = wrapIntoRows(buildWords(scale));
+    totalH = rows.reduce((s, r, i) => s + r.h + gapAbove(r, i), 0);
+  }
+  const blockStartY = topY + Math.max(0, (availH - totalH) / 2);
+
+  let y = blockStartY;
+  rows.forEach((r, ri) => {
+    y += gapAbove(r, ri);
+    const rowWidth = r.row.reduce((s, tw, i) => s + tw.w + (tw.isTag ? 44 : 10) + (i ? 22 : 0), 0);
+    const jitter = rand01(seed + ri * 31);
+    let x = PAD + Math.max(0, usableW - rowWidth) * jitter;
+    const baseline = y + r.h * 0.74;
+    r.row.forEach((tw) => {
+      const boxW = tw.w + (tw.isTag ? 44 : 10);
+      const cx = x + boxW / 2;
+      const vJitter = (rand01(seed + ri * 7 + tw.text.length) - 0.5) * 10;
+      ctx.save();
+      ctx.translate(cx, baseline + vJitter);
+      ctx.rotate((tw.rot * Math.PI) / 180);
+      ctx.font = `400 ${tw.size}px ${SERIF}`;
+      ctx.textAlign = 'center';
+      if (tw.isTag) {
+        roundRect(ctx, -boxW / 2, -tw.size * 0.84, boxW, tw.size * 1.2, tw.size * 0.3);
+        ctx.fillStyle = palette.a;
+        ctx.fill();
+        ctx.fillStyle = palette.onA;
+        ctx.fillText(tw.text, 0, 0);
+      } else {
+        ctx.shadowColor = 'rgba(0,0,0,.65)';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = tw.colorAccent ? palette.a : '#ffffff';
+        ctx.fillText(tw.text, 0, 0);
+        ctx.shadowBlur = 0;
+      }
+      ctx.restore();
+      x += boxW + 22;
     });
+    y += r.h;
   });
+  ctx.textAlign = 'left';
 
   const footY = STORY_HEIGHT - 70;
   ctx.fillStyle = '#fff';
