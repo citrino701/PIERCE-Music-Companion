@@ -2,7 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Download, Quote, Share2, X } from 'lucide-react';
 import type { TrackData } from '../types';
-import { renderStoryCard } from '../services/stats/storyCard';
+import { renderStoryCard, type StoryTemplate } from '../services/stats/storyCard';
+
+const TEMPLATES: { id: StoryTemplate; label: string }[] = [
+  { id: 'poster', label: 'Pôster' },
+  { id: 'tags', label: 'Capa + tags' },
+];
 
 interface Props {
   track: TrackData;
@@ -17,6 +22,7 @@ const MAX_LINES = 8;
  */
 export const TrackStoryPanel: React.FC<Props> = ({ track }) => {
   const [open, setOpen] = useState(false);
+  const [template, setTemplate] = useState<StoryTemplate>('poster');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
@@ -51,7 +57,7 @@ export const TrackStoryPanel: React.FC<Props> = ({ track }) => {
     setSharing(true); setShareError(null); setShareImg(null); setCopied(false);
     try {
       const picked = lines.filter((l) => selected.has(l.id)).map((l) => l.text.trim());
-      const canvas = await renderStoryCard({ title: track.title, artist: track.artist, image: track.coverImage, lines: picked });
+      const canvas = await renderStoryCard({ template, title: track.title, artist: track.artist, image: track.coverImage, lines: picked });
       canvasRef.current = canvas;
       setShareImg(canvas.toDataURL('image/png'));
     } catch {
@@ -98,6 +104,14 @@ export const TrackStoryPanel: React.FC<Props> = ({ track }) => {
         <div role="dialog" aria-label="Escolher trecho da letra" style={{ position: 'fixed', left: 72, top: 224, width: 300, maxHeight: 'calc(100vh - 242px)', display: 'flex', flexDirection: 'column', background: '#fff', color: '#111', border: '2px solid #111', boxShadow: '5px 5px 0 #111' }}>
           <div style={{ padding: '10px 12px', borderBottom: '1px solid #ddd', font: "700 12px 'Arimo', sans-serif" }}>
             Escolha os trechos (até {MAX_LINES}) para o stories
+          </div>
+          <div style={{ display: 'flex', gap: 6, padding: '8px 10px 0' }}>
+            {TEMPLATES.map((t) => (
+              <button key={t.id} type="button" onClick={() => setTemplate(t.id)} aria-pressed={template === t.id} style={{
+                flex: 1, padding: '6px 4px', cursor: 'pointer', borderRadius: 999, border: '1.5px solid #111',
+                background: template === t.id ? '#111' : '#fff', color: template === t.id ? '#fff' : '#111', font: "700 10.5px 'Arimo', sans-serif",
+              }}>{t.label}</button>
+            ))}
           </div>
           <div style={{ overflowY: 'auto', padding: '6px 10px', flex: 1 }}>
             {lines.map((l) => {

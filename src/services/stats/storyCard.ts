@@ -1,14 +1,20 @@
 /**
- * Draws a vertical (Instagram Stories ratio) share card for one individual track: cover photo up top with a
- * grainy halftone treatment, a manually-picked lyric excerpt centered as the main text, and a small credit
- * footer. Deliberately a DIFFERENT visual identity from the metrics card in shareCard.ts — dark/poster
- * instead of cream/editorial — per the request that the two share types not look alike.
- * Plain Canvas 2D, no extra dependency.
+ * Shares the CURRENT track as a fixed-ratio Instagram Stories image (1080×1920), built from a manually
+ * picked lyric excerpt — never auto-picked. Two selectable templates, each modelled on a different kind
+ * of lyric poster:
+ *   - 'poster': a bold solid-colour field, big condensed playful caps type for the excerpt, the cover art
+ *     as a small inset photo, and the track title in the same oversized type at the bottom.
+ *   - 'tags':   the cover art full-bleed as the background, with each word of the excerpt scattered across
+ *     it in its own small colour tag.
+ * In both, the type colour is the track's own dominant colour (the same one the Pontilhado/Vidro views use),
+ * not a fixed palette — so every track's stories card looks like that track. Plain Canvas 2D, no dependency.
  */
-import { dither } from '../../components/colagem/views/dotShapes';
-import { hashString } from '../palette/trackPalette';
+import { getTrackPalette, INK } from '../palette/trackPalette';
+
+export type StoryTemplate = 'poster' | 'tags';
 
 export interface StoryCardData {
+  template: StoryTemplate;
   title: string;
   artist: string;
   /** Cover art URL; '' falls back to a plain dark background. */
@@ -19,8 +25,6 @@ export interface StoryCardData {
 
 export const STORY_WIDTH = 1080;
 export const STORY_HEIGHT = 1920;
-const CREAM = '#fbfaf6';
-const INK = '#0b0b0b';
 const PAD = 72;
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -44,30 +48,17 @@ function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: numb
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
-/** Dithered grain overlay (same Bayer rule as the Pontilhado view) — a halftone texture over the photo, never reads its pixels so it survives a CORS-opaque image. */
-function grainOverlay(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number): void {
-  const step = 10;
-  ctx.save();
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.clip();
-  ctx.fillStyle = 'rgba(11,11,11,.5)';
-  for (let gy = 0; (y + gy * step) < y + h; gy++) {
-    for (let gx = 0; (x + gx * step) < x + w; gx++) {
-      const px = x + gx * step, py = y + gy * step;
-      const v = Math.sin(px * 0.045 + seed) * Math.sin(py * 0.05 - seed * 1.7) * 0.5 + 0.5;
-      if (dither(v, gx, gy)) {
-        ctx.beginPath();
-        ctx.arc(px + step / 2, py + step / 2, 1.1, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-  ctx.restore();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
-function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
+function wrapWords(ctx: CanvasRenderingContext2D, words: string[], maxWidth: number): string[] {
   const out: string[] = [];
   let line = '';
   for (const w of words) {
@@ -78,11 +69,152 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
   return out.length ? out : [''];
 }
 
-/** Flattens the selected lyric lines into word-wrapped visual lines for a given font/width, so callers can center the block before drawing. */
+/** Flattens the selected lyric lines into word-wrapped visual lines for a given font/width. */
 export function layoutLyricLines(ctx: CanvasRenderingContext2D, lines: string[], maxWidth: number): string[] {
   const out: string[] = [];
-  lines.forEach((line) => { out.push(...wrapLines(ctx, line.trim(), maxWidth)); });
+  lines.forEach((line) => { out.push(...wrapWords(ctx, line.trim().split(/\s+/).filter(Boolean), maxWidth)); });
   return out;
+}
+
+/** Condensed-looking bold caps: a slight horizontal squeeze on an otherwise ordinary bold sans — playful, poster-like, no special font file needed. */
+function drawCondensed(
+  ctx: CanvasRenderingContext2D, text: string, x: number, y: number, weight: number, size: number, color: string, squeeze = 0.86,
+): void {
+  ctx.save();
+  ctx.font = `${weight} ${size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`;
+  ctx.translate(x, y);
+  ctx.scale(squeeze, 1);
+  ctx.fillStyle = color;
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
+}
+
+function condensedWidth(ctx: CanvasRenderingContext2D, text: string, weight: number, size: number, squeeze = 0.86): number {
+  ctx.font = `${weight} ${size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`;
+  return ctx.measureText(text).width * squeeze;
+}
+
+// ---------------------------------------------------------------------------
+// 'poster' template — bold colour field, big playful caps, cover as a small inset photo
+// ---------------------------------------------------------------------------
+
+async function renderPoster(ctx: CanvasRenderingContext2D, data: StoryCardData, img: HTMLImageElement | null): Promise<void> {
+  const palette = await getTrackPalette({ id: `${data.title}:${data.artist}`, coverImage: data.image });
+
+  // near-black field: `palette.a` is tuned (in trackPalette.ts) for contrast against white OR this exact
+  // ink, so pairing it with any other background risks the text blending in, as deep (same hue as `a`) did.
+  ctx.fillStyle = INK;
+  ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+
+  const maxWidth = (STORY_WIDTH - PAD * 2) / 0.86;
+  const upperLines = data.lines.map((l) => l.trim().toUpperCase());
+  ctx.font = "800 72px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
+  let visual = layoutLyricLines(ctx, upperLines, maxWidth);
+  let size = 72, lineH = 80;
+  if (visual.length > 5) { size = 54; lineH = 60; ctx.font = `800 ${size}px 'Arimo', 'Helvetica Neue', Arial, sans-serif`; visual = layoutLyricLines(ctx, upperLines, (STORY_WIDTH - PAD * 2) / 0.86); }
+
+  let ly = 190;
+  visual.slice(0, 9).forEach((line) => {
+    drawCondensed(ctx, line, PAD, ly, 800, size, palette.a);
+    ly += lineH;
+  });
+
+  // cover inset, small, rotated — "a imagem representando a capa"
+  const coverSize = 300;
+  const coverX = PAD;
+  const coverY = ly + 50;
+  if (img) {
+    ctx.save();
+    ctx.translate(coverX + coverSize / 2, coverY + coverSize / 2);
+    ctx.rotate(-3 * (Math.PI / 180));
+    ctx.translate(-coverSize / 2, -coverSize / 2);
+    roundRect(ctx, 0, 0, coverSize, coverSize, 10);
+    ctx.save(); ctx.clip(); drawCover(ctx, img, 0, 0, coverSize, coverSize); ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 5;
+    roundRect(ctx, 0, 0, coverSize, coverSize, 10);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // small dot cluster accent (Pontilhado signature) beside the cover
+  ctx.fillStyle = palette.a;
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(coverX + coverSize + 70 + Math.cos(a) * 22, coverY + 60 + Math.sin(a) * 22, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // artist, small italic script-ish accent
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.font = "italic 600 32px 'Instrument Serif', Georgia, serif";
+  ctx.fillText(data.artist, coverX, coverY + coverSize + 56);
+
+  // big title at the bottom, same condensed caps treatment
+  const titleY = STORY_HEIGHT - 190;
+  const titleUpper = data.title.toUpperCase();
+  let titleSize = 92;
+  while (titleSize > 44 && condensedWidth(ctx, titleUpper, 800, titleSize) > STORY_WIDTH - PAD * 2) titleSize -= 4;
+  drawCondensed(ctx, titleUpper, PAD, titleY, 800, titleSize, '#ffffff');
+
+  // footer
+  const footY = STORY_HEIGHT - 60;
+  ctx.fillStyle = palette.a;
+  ctx.font = "italic 700 30px 'Instrument Serif', Georgia, serif";
+  ctx.fillText('PiErCe', PAD, footY);
+}
+
+// ---------------------------------------------------------------------------
+// 'tags' template — cover photo full-bleed, each word of the excerpt as its own scattered tag
+// ---------------------------------------------------------------------------
+
+async function renderTags(ctx: CanvasRenderingContext2D, data: StoryCardData, img: HTMLImageElement | null): Promise<void> {
+  const palette = await getTrackPalette({ id: `${data.title}:${data.artist}`, coverImage: data.image });
+
+  if (img) {
+    drawCover(ctx, img, 0, 0, STORY_WIDTH, STORY_HEIGHT);
+  } else {
+    ctx.fillStyle = palette.deep;
+    ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+  }
+
+  // bottom gradient so the footer always reads
+  const fade = ctx.createLinearGradient(0, STORY_HEIGHT - 460, 0, STORY_HEIGHT);
+  fade.addColorStop(0, 'rgba(0,0,0,0)');
+  fade.addColorStop(1, 'rgba(0,0,0,.72)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, STORY_HEIGHT - 460, STORY_WIDTH, 460);
+
+  const words = data.lines.flatMap((l) => l.trim().split(/\s+/).filter(Boolean)).slice(0, 10);
+  const textColor = palette.onA;
+  ctx.font = "800 34px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
+  let y = 260;
+  words.forEach((w, i) => {
+    const jitter = ((i * 97) % 11) * 9 - 50; // deterministic, no RNG import needed
+    const x = PAD + 60 + Math.max(0, jitter);
+    const tw = ctx.measureText(w).width;
+    const padX = 18, padY = 12;
+    ctx.fillStyle = palette.a;
+    roundRect(ctx, x - padX, y - 34, tw + padX * 2, 34 + padY, 8);
+    ctx.fill();
+    ctx.fillStyle = textColor;
+    ctx.fillText(w, x, y - 8);
+    y += 96;
+  });
+
+  const footY = STORY_HEIGHT - 70;
+  ctx.fillStyle = '#fff';
+  ctx.font = "700 30px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
+  ctx.fillText(data.title, PAD, footY - 30);
+  ctx.fillStyle = 'rgba(255,255,255,.75)';
+  ctx.font = "500 22px 'Arimo', sans-serif";
+  ctx.fillText(data.artist, PAD, footY);
+  ctx.fillStyle = palette.a;
+  ctx.font = "italic 700 28px 'Instrument Serif', Georgia, serif";
+  ctx.textAlign = 'right';
+  ctx.fillText('PiErCe', STORY_WIDTH - PAD, footY);
+  ctx.textAlign = 'left';
 }
 
 export async function renderStoryCard(data: StoryCardData): Promise<HTMLCanvasElement> {
@@ -92,79 +224,9 @@ export async function renderStoryCard(data: StoryCardData): Promise<HTMLCanvasEl
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
 
-  const seed = hashString(`${data.title}:${data.artist}`) % 97;
   const img = await loadImage(data.image);
-
-  // base
-  ctx.fillStyle = INK;
-  ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
-
-  // photo band, top ~56% of the frame
-  const photoH = Math.round(STORY_HEIGHT * 0.56);
-  if (img) {
-    drawCover(ctx, img, 0, 0, STORY_WIDTH, photoH);
-  } else {
-    const grad = ctx.createLinearGradient(0, 0, STORY_WIDTH, photoH);
-    grad.addColorStop(0, '#201f1f');
-    grad.addColorStop(1, '#0b0b0b');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, STORY_WIDTH, photoH);
-  }
-  grainOverlay(ctx, 0, 0, STORY_WIDTH, photoH, seed);
-
-  // fade the photo into the dark lower section so the lyric text always has contrast
-  const fade = ctx.createLinearGradient(0, photoH - 420, 0, photoH);
-  fade.addColorStop(0, 'rgba(11,11,11,0)');
-  fade.addColorStop(1, 'rgba(11,11,11,1)');
-  ctx.fillStyle = fade;
-  ctx.fillRect(0, photoH - 420, STORY_WIDTH, 420);
-
-  // lyric excerpt, centered in the remaining space
-  const textTop = photoH - 60;
-  const textBottom = STORY_HEIGHT - 240;
-  ctx.font = "italic 600 52px 'Instrument Serif', Georgia, serif";
-  const maxWidth = STORY_WIDTH - PAD * 2;
-  const visualLines = layoutLyricLines(ctx, data.lines, maxWidth);
-  const lineHeight = 64;
-  const blockHeight = visualLines.length * lineHeight;
-  let ly = Math.max(textTop + 70, (textTop + textBottom) / 2 - blockHeight / 2 + lineHeight);
-
-  ctx.fillStyle = 'rgba(251,250,246,.55)';
-  ctx.font = "700 90px Georgia, serif";
-  ctx.fillText('"', PAD - 8, textTop + 90);
-
-  ctx.textAlign = 'left';
-  ctx.fillStyle = CREAM;
-  ctx.font = "italic 600 52px 'Instrument Serif', Georgia, serif";
-  visualLines.forEach((line) => { ctx.fillText(line, PAD, ly); ly += lineHeight; });
-
-  // footer credit
-  const footY = STORY_HEIGHT - 150;
-  if (img) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(PAD, footY, 76, 76);
-    ctx.clip();
-    drawCover(ctx, img, PAD, footY, 76, 76);
-    ctx.restore();
-  }
-  ctx.strokeStyle = 'rgba(251,250,246,.6)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(PAD, footY, 76, 76);
-
-  const textX = PAD + 76 + 22;
-  ctx.fillStyle = CREAM;
-  ctx.font = "700 28px 'Arimo', 'Helvetica Neue', Arial, sans-serif";
-  ctx.fillText(data.title, textX, footY + 32);
-  ctx.fillStyle = 'rgba(251,250,246,.65)';
-  ctx.font = "500 22px 'Arimo', sans-serif";
-  ctx.fillText(data.artist, textX, footY + 60);
-
-  ctx.fillStyle = 'rgba(251,250,246,.85)';
-  ctx.font = "italic 600 26px 'Instrument Serif', Georgia, serif";
-  ctx.textAlign = 'right';
-  ctx.fillText('PiErCe', STORY_WIDTH - PAD, footY + 46);
-  ctx.textAlign = 'left';
+  if (data.template === 'tags') await renderTags(ctx, data, img);
+  else await renderPoster(ctx, data, img);
 
   return canvas;
 }
