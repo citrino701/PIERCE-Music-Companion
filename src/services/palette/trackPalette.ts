@@ -106,8 +106,18 @@ export function dominantHues(rgba: ArrayLike<number>): { a: number; b?: number }
   for (let i = 0; i + 3 < rgba.length; i += 4) {
     if (rgba[i + 3] < 128) continue;
     const { h, s, l } = rgbToHsl(rgba[i], rgba[i + 1], rgba[i + 2]);
-    if (s < 0.25 || l < 0.15 || l > 0.9) continue;
-    weight[Math.floor(h / (360 / BINS)) % BINS] += s * (1 - Math.abs(2 * l - 1));
+    // Downscaling a real photo to a tiny thumbnail blends most of it into muted, moderate-saturation
+    // colour (skin, clothes, pavement...), while small patches — sky, denim, a sign — stay fully
+    // saturated. A 0.25 cutoff threw away all of the former and left only the latter to win the vote, so
+    // almost any busy photo with a hint of blue in it read as a "blue cover" no matter what it showed.
+    // 0.1 keeps those muted-but-majority tones in the running.
+    if (s < 0.1 || l < 0.15 || l > 0.9) continue;
+    // `sqrt(s)` instead of a plain `s`: a linear saturation weight still let a small vivid patch (a sky
+    // sliver at s≈0.65) outvote a much larger muted majority (a crowd at s≈0.2) just because its per-pixel
+    // weight was ~3x higher — almost exactly cancelling out a 3x-larger pixel count. Compressing the
+    // saturation term keeps a real preference for vivid colour without letting it override which hue
+    // actually covers most of the photo.
+    weight[Math.floor(h / (360 / BINS)) % BINS] += Math.sqrt(s) * (1 - Math.abs(2 * l - 1));
   }
   const binHue = (i: number) => (i + 0.5) * (360 / BINS);
   const order = weight.map((w, i) => ({ w, i })).filter((x) => x.w > 0).sort((x, y) => y.w - x.w);
