@@ -203,7 +203,7 @@ function useIsNano(ref: React.RefObject<HTMLElement>): boolean {
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const check = (w: number, h: number) => setIsNano(w > 0 && h > 0 && w <= NANO_MAX_SIZE.width && h <= NANO_MAX_SIZE.height);
+    const check = (w: number, h: number) => setIsNano(w > 0 && h > 0 && (w <= NANO_MAX_SIZE.width || h <= NANO_MAX_SIZE.height));
     check(el.clientWidth, el.clientHeight);
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
