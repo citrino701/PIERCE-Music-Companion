@@ -1,18 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseWidgetPrefs, serializeWidgetPrefs, clampToScreen, defaultPosition, nextVariant, filledDots, WIDGET_SIZES, DEFAULT_WIDGET_PREFS,
+  parseWidgetPrefs, serializeWidgetPrefs, clampToScreen, defaultPosition, filledDots, WIDGET_SIZES, DEFAULT_WIDGET_PREFS,
 } from './widgetLayout';
 
 test('parseWidgetPrefs falls back to defaults on bad input', () => {
   assert.deepEqual(parseWidgetPrefs(null), DEFAULT_WIDGET_PREFS);
   assert.deepEqual(parseWidgetPrefs('not json'), DEFAULT_WIDGET_PREFS);
   assert.deepEqual(parseWidgetPrefs('{"variant":"zen"}'), DEFAULT_WIDGET_PREFS);
-  assert.deepEqual(parseWidgetPrefs('{"variant":"mini","position":{"x":"a","y":2}}'), { variant: 'mini', position: null });
+  // A format the person can no longer pick (from an older save) falls back to 'normal', not through.
+  assert.deepEqual(parseWidgetPrefs('{"variant":"mini","position":{"x":"a","y":2}}'), { variant: 'normal', position: null });
 });
 
 test('prefs round-trip', () => {
-  const prefs = { variant: 'disc' as const, position: { x: 10, y: 20 } };
+  const prefs = { variant: 'normal' as const, position: { x: 10, y: 20 } };
   assert.deepEqual(parseWidgetPrefs(serializeWidgetPrefs(prefs)), prefs);
 });
 
@@ -23,15 +24,9 @@ test('clampToScreen keeps the widget visible', () => {
 });
 
 test('defaultPosition sits inside the screen', () => {
-  const p = defaultPosition(WIDGET_SIZES.mini, { width: 1366, height: 768 });
-  assert.ok(p.x >= 0 && p.x + WIDGET_SIZES.mini.width <= 1366);
-  assert.ok(p.y >= 0 && p.y + WIDGET_SIZES.mini.height <= 768);
-});
-
-test('nextVariant cycles normal -> disc -> mini', () => {
-  assert.equal(nextVariant('normal'), 'disc');
-  assert.equal(nextVariant('disc'), 'mini');
-  assert.equal(nextVariant('mini'), 'normal');
+  const p = defaultPosition(WIDGET_SIZES.normal, { width: 1366, height: 768 });
+  assert.ok(p.x >= 0 && p.x + WIDGET_SIZES.normal.width <= 1366);
+  assert.ok(p.y >= 0 && p.y + WIDGET_SIZES.normal.height <= 768);
 });
 
 test('filledDots is clamped', () => {

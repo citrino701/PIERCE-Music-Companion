@@ -1,21 +1,26 @@
 /** Pure helpers for the floating "reduced" widget (sizes, persisted preferences). */
 
-export type WidgetVariant = 'normal' | 'disc' | 'mini';
-
-export const WIDGET_VARIANTS: WidgetVariant[] = ['normal', 'disc', 'mini'];
-
 /**
- * Logical window size per variant. The window itself IS the widget now (no background shows
- * through): 'normal' and 'mini' shells fill 100% of the window exactly, so their size here is the
- * widget's real on-screen size (392x196 / 300x48, rounded up a hair for border/shadow crispness).
- * 'disc' still draws itself at a fixed 204px diameter and needs a little real margin around it for
- * its (non-clipped) drop shadow to bleed into, so it keeps a small surrounding box.
+ * Only one format is chosen by the person now ('normal'). The widget also has a "nano" layout —
+ * a single skip button, nothing else — but that one is never picked manually: ReducedWidget
+ * switches to it on its own, purely from the window's actual measured size (see NANO_MAX_SIZE),
+ * so it only shows up once the window has actually been shrunk down that small.
  */
+export type WidgetVariant = 'normal';
+
+export const WIDGET_VARIANTS: WidgetVariant[] = ['normal'];
+
+/** Logical window size for the (only) manually-chosen format — the widget's real on-screen size. */
 export const WIDGET_SIZES: Record<WidgetVariant, { width: number; height: number }> = {
   normal: { width: 394, height: 198 },
-  disc: { width: 220, height: 220 },
-  mini: { width: 302, height: 50 },
 };
+
+/**
+ * Below this real, measured size the widget drops everything but a single skip-track button — at
+ * that point there's no room left for the cover, the text or even the play/pause control, so skip
+ * is the one thing that still has to work.
+ */
+export const NANO_MAX_SIZE = { width: 150, height: 70 };
 
 export const WIDGET_STORAGE_KEY = 'pierce:widget';
 
@@ -63,10 +68,6 @@ export function clampToScreen(
 /** Default spot: bottom-right corner with a margin. */
 export function defaultPosition(size: { width: number; height: number }, screen: { width: number; height: number }, margin = 24) {
   return clampToScreen({ x: screen.width - size.width - margin, y: screen.height - size.height - margin - 40 }, size, screen);
-}
-
-export function nextVariant(v: WidgetVariant): WidgetVariant {
-  return WIDGET_VARIANTS[(WIDGET_VARIANTS.indexOf(v) + 1) % WIDGET_VARIANTS.length];
 }
 
 /** Progress ring/bar dots filled so far. */

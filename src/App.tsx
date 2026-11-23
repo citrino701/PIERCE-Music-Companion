@@ -22,10 +22,10 @@ import type { SpotifyNowPlaying } from './services/playback/SpotifyMetadataConne
 import { ReducedWidget } from './components/widget/ReducedWidget';
 import { InstallPrompt } from './components/InstallPrompt';
 import { LYRIC_OFFSET_DEFAULT_MS, LYRIC_OFFSET_KEY, clampLyricOffset, parseLyricOffset } from './services/colagem/layout';
-import { enterReduced, exitReduced, resizeReduced, startDrag, onWindowMoved, isTauri } from './services/widget/reducedWindow';
-import { isPipSupported, openPipWindow, resizePipWindow } from './services/widget/pipWindow';
+import { enterReduced, exitReduced, startDrag, onWindowMoved, isTauri } from './services/widget/reducedWindow';
+import { isPipSupported, openPipWindow } from './services/widget/pipWindow';
 import { createKeepAlive, registerMediaSession, supportsAutoPip, updateMediaMetadata } from './services/widget/autoPip';
-import { WIDGET_STORAGE_KEY, parseWidgetPrefs, serializeWidgetPrefs, nextVariant, type WidgetPrefs, type WidgetVariant } from './services/widget/widgetLayout';
+import { WIDGET_STORAGE_KEY, parseWidgetPrefs, serializeWidgetPrefs, type WidgetPrefs } from './services/widget/widgetLayout';
 import { parseLrc } from './services/lyrics/lrc';
 
 export default function App() {
@@ -256,12 +256,6 @@ export default function App() {
     setWidgetPrefs(next);
     try { window.localStorage.setItem(WIDGET_STORAGE_KEY, serializeWidgetPrefs(next)); } catch { /* storage unavailable */ }
   }, []);
-  const changeVariant = useCallback((variant: WidgetVariant) => {
-    savePrefs({ ...widgetPrefsRef.current, variant });
-    void resizeReduced(variant).catch(() => undefined);
-    if (pipWindow) resizePipWindow(pipWindow, variant);
-  }, [savePrefs, pipWindow]);
-
   // "Reduzir": desktop app -> morph the window; Chrome/Edge -> Picture-in-Picture window; otherwise the widget fills the tab.
   const selectMode = useCallback((mode: ViewMode) => {
     if (mode === 'fullscreen') {
@@ -343,7 +337,6 @@ export default function App() {
       if (e.key === 'Escape' && currentMode === 'reduced') selectMode('fullscreen');
       if (e.key === '1') selectMode('reduced');
       if (e.key === '2') selectMode('fullscreen');
-      if (e.key.toLowerCase() === 'v' && currentMode === 'reduced') changeVariant(nextVariant(widgetPrefsRef.current.variant));
       if (e.code === 'Space') {
         e.preventDefault();
         handleTogglePlay();
@@ -360,7 +353,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handleSeek, progressMs, currentMode, changeVariant, selectMode]);
+  }, [handleTogglePlay, handleSeek, progressMs, currentMode, selectMode]);
 
   const reduced = currentMode === 'reduced';
 
@@ -377,8 +370,6 @@ export default function App() {
         progressMs={progressMs}
         isPlaying={isPlaying}
         activeLyric={activeLyric}
-        variant={widgetPrefs.variant}
-        onVariantChange={changeVariant}
         onTogglePlay={handleTogglePlay}
         onPrevious={handlePreviousTrack}
         onNext={handleNextTrack}
@@ -430,8 +421,6 @@ export default function App() {
           progressMs={progressMs}
           isPlaying={isPlaying}
           activeLyric={activeLyric}
-          variant={widgetPrefs.variant}
-          onVariantChange={changeVariant}
           onTogglePlay={handleTogglePlay}
           onPrevious={handlePreviousTrack}
           onNext={handleNextTrack}
