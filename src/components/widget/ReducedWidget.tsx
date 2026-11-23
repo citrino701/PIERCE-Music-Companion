@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Pause, Play, SkipBack, SkipForward, Maximize2, Disc3, PanelTop, LayoutGrid, Search, ListMusic, X,
+  Pause, Play, SkipBack, SkipForward, Maximize2, Disc3, Search, ListMusic, X,
 } from 'lucide-react';
 import type { LyricLine, TrackData } from '../../types';
 import { useTrackPalette } from '../colagem/useTrackPalette';
 import { formatClock, liveCover } from '../../services/colagem/colagem';
-import { filledDots, WIDGET_SIZES, type WidgetVariant } from '../../services/widget/widgetLayout';
+import { filledDots, NANO_MAX_SIZE } from '../../services/widget/widgetLayout';
 import {
   getMyPlaylists, hasLibraryScopes, searchSpotifyTracks, beginSpotifyAuthorization,
 } from '../../services/playback/SpotifyMetadataConnector';
@@ -16,8 +16,6 @@ interface ReducedWidgetProps {
   progressMs: number;
   isPlaying: boolean;
   activeLyric?: LyricLine;
-  variant: WidgetVariant;
-  onVariantChange: (variant: WidgetVariant) => void;
   onTogglePlay: () => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -34,12 +32,6 @@ const RING_DOTS = 56;
 const TEXT = 'rgba(255,255,255,.94)';
 const SUB = 'rgba(255,255,255,.62)';
 const SHADOW = '0 1px 3px rgba(0,0,0,.4)';
-
-const VARIANT_BUTTONS: { id: WidgetVariant; label: string; icon: React.ReactNode }[] = [
-  { id: 'normal', label: 'Formato normal', icon: <LayoutGrid size={12} /> },
-  { id: 'disc', label: 'Formato disco', icon: <Disc3 size={12} /> },
-  { id: 'mini', label: 'Formato mini', icon: <PanelTop size={12} /> },
-];
 
 const css = `
 .pw-root,.pw-root *{box-sizing:border-box}
@@ -88,16 +80,13 @@ const Controls: React.FC<{ isPlaying: boolean; onTogglePlay: () => void; onPrevi
   </div>
 );
 
-const VariantSwitch: React.FC<{ variant: WidgetVariant; onChange: (v: WidgetVariant) => void; onExpand: () => void; onToggleLibrary?: () => void; libraryOpen?: boolean }> = ({ variant, onChange, onExpand, onToggleLibrary, libraryOpen }) => (
-  <div style={{ display: 'flex', gap: 4 }} role="group" aria-label="Formato do player flutuante">
+/** Top-right controls: search/playlists toggle + back-to-fullscreen. No more format switcher — there's only one manual format now. */
+const TopControls: React.FC<{ onExpand: () => void; onToggleLibrary?: () => void; libraryOpen?: boolean }> = ({ onExpand, onToggleLibrary, libraryOpen }) => (
+  <div style={{ display: 'flex', gap: 4 }}>
     {onToggleLibrary && (
       <button type="button" className="pw-btn" aria-label="Buscar músicas e playlists" aria-expanded={libraryOpen} title="Buscar músicas e playlists" onClick={onToggleLibrary}
         style={{ width: 22, height: 22, background: libraryOpen ? '#fff' : 'rgba(255,255,255,.14)', color: libraryOpen ? '#111' : '#fff' }}><Search size={12} /></button>
     )}
-    {VARIANT_BUTTONS.map((b) => (
-      <button key={b.id} type="button" className="pw-btn" aria-label={b.label} aria-pressed={variant === b.id} title={b.label} onClick={() => onChange(b.id)}
-        style={{ width: 22, height: 22, background: variant === b.id ? '#fff' : 'rgba(255,255,255,.14)', color: variant === b.id ? '#111' : '#fff' }}>{b.icon}</button>
-    ))}
     <button type="button" className="pw-btn" aria-label="Voltar ao Fullscreen" title="Voltar ao Fullscreen (Esc)" onClick={onExpand} style={{ width: 22, height: 22 }}><Maximize2 size={12} /></button>
   </div>
 );
@@ -205,12 +194,37 @@ const LibraryOverlay: React.FC<{
   );
 };
 
+/**
+ * Below NANO_MAX_SIZE there's no room left for anything but one button, so we drop straight to it —
+ * this is never picked by hand, only triggered by the window's own real measured size.
+ */
+function useIsNano(ref: React.RefObject<HTMLElement>): boolean {
+  const [isNano, setIsNano] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = (w: number, h: number) => setIsNano(w > 0 && h > 0 && w <= NANO_MAX_SIZE.width && h <= NANO_MAX_SIZE.height);
+    check(el.clientWidth, el.clientHeight);
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const box = entry?.contentBoxSize?.[0];
+      if (box) check(box.inlineSize, box.blockSize);
+      else if (entry) check(entry.contentRect.width, entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return isNano;
+}
+
 export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
-  track, progressMs, isPlaying, activeLyric, variant, onVariantChange, onTogglePlay, onPrevious, onNext, onExpand, onDragStart,
+  track, progressMs, isPlaying, activeLyric, onTogglePlay, onPrevious, onNext, onExpand, onDragStart,
   connected = false, onPlayTrack, onPlayPlaylist,
 }) => {
   const palette = useTrackPalette(track);
   const vars = { '--pw-a': palette.a, '--pw-deep': palette.deep } as React.CSSProperties;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const isNano = useIsNano(rootRef);
   const [tick, setTick] = useState(0);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const library = useLibrary(libraryOpen);
@@ -223,7 +237,6 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
   const ascii = useMemo(() => liveCover(tick * 0.5, (palette.a.length + track.id.length) % 7 / 3, 38, 12), [tick, palette.a, track.id]);
 
   const lyricLine = activeLyric?.text?.trim() || '';
-  const size = WIDGET_SIZES[variant];
   const dragProps = { onPointerDown: (e: React.PointerEvent) => { if ((e.target as HTMLElement).closest('button, [role="dialog"]')) return; if (e.button === 0) onDragStart(); } };
   const filled = filledDots(progressMs, track.durationMs, RING_DOTS);
   const canSearch = connected && !!onPlayTrack && !!onPlayPlaylist;
@@ -233,46 +246,13 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
   const playPlaylist = (uri: string) => { onPlayPlaylist?.(uri); setLibraryOpen(false); };
 
   let body: React.ReactNode;
-  if (variant === 'disc') {
-    const D = 204, R = D / 2 - 6;
+  if (isNano) {
+    // Too small for the cover, the text, even play/pause — the one thing that still has to work is skip.
     body = (
-      <div {...dragProps} style={{ position: 'relative', width: D, height: D, cursor: 'grab' }}>
-        <div className="pw-vinyl" aria-hidden style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 50%, #14142b 0 34%, #1d1d3a 34% 36%, #14142b 36% 60%, #26264a 60% 61%, #14142b 61%)`, boxShadow: '0 10px 28px rgba(0,0,0,.4)', border: '1px solid rgba(255,255,255,.28)' }}>
-          <div style={{ position: 'absolute', inset: '30%', borderRadius: '50%', backgroundImage: `url(${track.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center', border: `2px solid ${palette.a}` }} />
-        </div>
-        <svg aria-hidden width={D} height={D} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          {Array.from({ length: RING_DOTS }, (_, i) => {
-            const ang = (i / RING_DOTS) * Math.PI * 2 - Math.PI / 2;
-            return <circle key={i} cx={D / 2 + Math.cos(ang) * R} cy={D / 2 + Math.sin(ang) * R} r={i < filled ? 2.4 : 1.6} fill={i < filled ? palette.a : 'rgba(255,255,255,.4)'} />;
-          })}
-        </svg>
-        <button type="button" className="pw-btn" aria-label={isPlaying ? 'Pausar' : 'Tocar'} onClick={onTogglePlay}
-          style={{ position: 'absolute', left: D / 2 - 24, top: D / 2 - 24, width: 48, height: 48, background: palette.a, color: palette.onA, border: 'none' }}>
-          {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-        </button>
-        <button type="button" className="pw-btn" aria-label="Faixa anterior" onClick={onPrevious} style={{ position: 'absolute', left: 6, top: D / 2 - 14, width: 28, height: 28 }}><SkipBack size={13} /></button>
-        <button type="button" className="pw-btn" aria-label="Próxima faixa" onClick={onNext} style={{ position: 'absolute', right: 6, top: D / 2 - 14, width: 28, height: 28 }}><SkipForward size={13} /></button>
-        <div style={{ position: 'absolute', left: '50%', bottom: 2, transform: 'translateX(-50%)', background: palette.a, color: palette.onA, borderRadius: 8, padding: '1px 8px', fontSize: 10, maxWidth: 170, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-        <div style={{ position: 'absolute', left: '50%', top: 4, transform: 'translateX(-50%)' }}><VariantSwitch variant={variant} onChange={onVariantChange} onExpand={onExpand} onToggleLibrary={toggleLibrary} libraryOpen={libraryOpen} /></div>
-        {libraryOpen && <LibraryOverlay state={library} radius={22} onPlayTrack={playTrack} onPlayPlaylist={playPlaylist} onClose={closeLibrary} />}
-      </div>
-    );
-  } else if (variant === 'mini') {
-    const title = `${track.title} — ${track.artist}   ·   `;
-    body = (
-      <div {...dragProps} className="pw-shell" style={{ width: '100%', height: '100%', borderRadius: 999, cursor: 'grab' }}>
-        <GlassBackdrop cover={track.coverImage} a={palette.a} deep={palette.deep} radius={999} />
-        <div className="pw-sheen" style={{ borderRadius: 999, border: '1px solid rgba(255,255,255,.1)' }} />
-        <div className="pw-content" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 0 14px', overflow: 'hidden' }}>
-          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', fontSize: 11, color: TEXT, textShadow: SHADOW }} aria-label={`${track.title} — ${track.artist}`}>
-            <span className="pw-marquee">{title}{title}</span>
-          </div>
-          <VariantSwitch variant={variant} onChange={onVariantChange} onExpand={onExpand} />
-          <button type="button" className="pw-btn" aria-label={isPlaying ? 'Pausar' : 'Tocar'} onClick={onTogglePlay} style={{ width: 34, height: 34, background: palette.a, color: palette.onA, border: 'none', flex: '0 0 auto' }}>
-            {isPlaying ? <Pause size={15} /> : <Play size={15} />}
-          </button>
-        </div>
-      </div>
+      <button type="button" aria-label="Próxima faixa" onClick={onNext}
+        style={{ width: '100%', height: '100%', border: 'none', borderRadius: 0, background: palette.a, color: palette.onA, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <SkipForward size={Math.max(16, Math.min(32, Math.round(Math.min(NANO_MAX_SIZE.width, NANO_MAX_SIZE.height) * 0.4)))} />
+      </button>
     );
   } else {
     body = (
@@ -290,10 +270,7 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
                 <div style={{ fontFamily: "'Arimo','Helvetica Neue',Arial,sans-serif", fontWeight: 700, fontSize: 18, letterSpacing: '-0.04em', lineHeight: 1, color: TEXT, textShadow: SHADOW, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
                 <div style={{ fontSize: 10, color: SUB, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
               </div>
-              {toggleLibrary && (
-                <button type="button" className="pw-btn" aria-label="Buscar músicas e playlists" aria-expanded={libraryOpen} title="Buscar músicas e playlists" onClick={toggleLibrary}
-                  style={{ width: 24, height: 24, flex: 'none', background: libraryOpen ? '#fff' : 'rgba(255,255,255,.14)', color: libraryOpen ? '#111' : '#fff' }}><Search size={12} /></button>
-              )}
+              <TopControls onExpand={onExpand} onToggleLibrary={toggleLibrary} libraryOpen={libraryOpen} />
             </div>
             <div style={{ fontFamily: "'Instrument Serif',Georgia,serif", fontSize: 19, lineHeight: 1.15, minHeight: 44, color: TEXT, textShadow: SHADOW, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} aria-live="off">
               {lyricLine === '' ? <span style={{ opacity: 0.5, fontStyle: 'italic' }}>♪</span> : lyricLine}
@@ -304,7 +281,6 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Controls isPlaying={isPlaying} onTogglePlay={onTogglePlay} onPrevious={onPrevious} onNext={onNext} a={palette.a} onA={palette.onA} size={28} />
-              <VariantSwitch variant={variant} onChange={onVariantChange} onExpand={onExpand} />
             </div>
           </div>
         </div>
@@ -314,7 +290,7 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
   }
 
   return (
-    <div className={`pw-root ${isPlaying ? '' : 'pw-paused'}`} style={vars} data-testid="reduced-widget" data-variant={variant} data-logical-size={`${size.width}x${size.height}`}>
+    <div ref={rootRef} className={`pw-root ${isPlaying ? '' : 'pw-paused'}`} style={vars} data-testid="reduced-widget" data-variant={isNano ? 'nano' : 'normal'}>
       <style>{css}</style>
       {body}
     </div>
