@@ -115,7 +115,7 @@ export const FullscreenMode: React.FC<FullscreenModeProps> = ({
   }, [onSelectMode]);
 
   return (
-    <div ref={host} data-testid="fullscreen-mode-container" className="fixed top-0 right-0 bottom-0 left-16 z-20 overflow-hidden">
+    <div ref={host} data-testid="fullscreen-mode-container" className="fixed top-0 right-0 bottom-0 left-0 z-20 overflow-hidden">
       <View
         track={track}
         tracks={TRACK_CATALOG}

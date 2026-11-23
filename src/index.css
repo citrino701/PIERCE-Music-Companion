@@ -281,7 +281,9 @@
   :root { color-scheme:dark; --paper:#171915; --ink:#ebe7dd; --faint:#4b4d44; --side:#0d0e0b; --accent:#f0b47c; --pixel-accent:#f0d99b; }
 }
 .pierce-global-sidebar { background:var(--side); border-color:rgba(255,255,255,.08); }
-.pierce-app-with-sidebar { padding-left:4rem; }
+/* A barra fica escondida por padrão (ver NavigationSidebar.tsx) e sobrepõe o conteúdo quando revelada,
+   então o app não reserva mais espaço fixo pra ela. */
+.pierce-app-with-sidebar { padding-left:0; }
 /* Floating widget: the window itself is transparent, only the widget is drawn. */
 html.pierce-reduced, html.pierce-reduced body, html.pierce-reduced #root { background:transparent !important; }
 .pierce-ascii-frame { position:absolute; inset:0; z-index:40; display:block; width:100%; height:100%; pointer-events:none; }
