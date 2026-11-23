@@ -18,9 +18,11 @@ export const WIDGET_SIZES: Record<WidgetVariant, { width: number; height: number
 /**
  * Below this real, measured size the widget drops everything but a single skip-track button — at
  * that point there's no room left for the cover, the text or even the play/pause control, so skip
- * is the one thing that still has to work.
+ * is the one thing that still has to work. Triggers on EITHER dimension alone (not both at once):
+ * the window usually gets squeezed in one direction (short and still wide, or narrow and still
+ * tall), and either one on its own is already enough to break the normal layout.
  */
-export const NANO_MAX_SIZE = { width: 150, height: 70 };
+export const NANO_MAX_SIZE = { width: 220, height: 100 };
 
 export const WIDGET_STORAGE_KEY = 'pierce:widget';
 
