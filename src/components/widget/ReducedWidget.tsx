@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import type { LyricLine, TrackData } from '../../types';
 import { useTrackPalette } from '../colagem/useTrackPalette';
-import { formatClock, lyricWords, liveCover } from '../../services/colagem/colagem';
+import { formatClock, liveCover } from '../../services/colagem/colagem';
 import { filledDots, WIDGET_SIZES, type WidgetVariant } from '../../services/widget/widgetLayout';
 import {
   getMyPlaylists, hasLibraryScopes, searchSpotifyTracks, beginSpotifyAuthorization,
@@ -51,7 +51,7 @@ const css = `
 .pw-bg{position:absolute;inset:0;z-index:0}
 .pw-sheen{position:absolute;inset:0;z-index:1;background:linear-gradient(165deg,rgba(0,0,0,.08),rgba(0,0,0,.4));backdrop-filter:blur(22px) saturate(1.25);-webkit-backdrop-filter:blur(22px) saturate(1.25);box-shadow:0 14px 34px rgba(0,0,0,.5)}
 .pw-content{position:relative;z-index:2;width:100%;height:100%}
-.pw-card{width:100%;height:100%;border-radius:18px;border:1px solid rgba(255,255,255,.1);display:flex;gap:12px;padding:12px}
+.pw-card{width:100%;height:100%;display:flex;gap:12px;padding:12px}
 .pw-blob{animation-duration:22s;animation-iteration-count:infinite;animation-timing-function:ease-in-out}
 .pw-vinyl{border-radius:50%;animation:pw-spin 6s linear infinite}
 .pw-paused .pw-vinyl{animation-play-state:paused}
@@ -222,7 +222,7 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
   useEffect(() => { setLibraryOpen(false); }, [track.id]);
   const ascii = useMemo(() => liveCover(tick * 0.5, (palette.a.length + track.id.length) % 7 / 3, 38, 12), [tick, palette.a, track.id]);
 
-  const words = activeLyric ? lyricWords(activeLyric, progressMs) : [];
+  const lyricLine = activeLyric?.text?.trim() || '';
   const size = WIDGET_SIZES[variant];
   const dragProps = { onPointerDown: (e: React.PointerEvent) => { if ((e.target as HTMLElement).closest('button, [role="dialog"]')) return; if (e.button === 0) onDragStart(); } };
   const filled = filledDots(progressMs, track.durationMs, RING_DOTS);
@@ -276,9 +276,9 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
     );
   } else {
     body = (
-      <div {...dragProps} className="pw-shell" style={{ width: '100%', height: '100%', borderRadius: 18, cursor: 'grab' }}>
-        <GlassBackdrop cover={track.coverImage} a={palette.a} deep={palette.deep} radius={18} />
-        <div className="pw-sheen pw-card" />
+      <div {...dragProps} className="pw-shell" style={{ width: '100%', height: '100%', borderRadius: 0, cursor: 'grab' }}>
+        <GlassBackdrop cover={track.coverImage} a={palette.a} deep={palette.deep} radius={0} />
+        <div className="pw-sheen pw-card" style={{ borderRadius: 0, border: 'none' }} />
         <div className="pw-content pw-card" style={{ border: 'none' }}>
           <div aria-hidden style={{ width: 140, flex: '0 0 140px', borderRadius: 12, border: '1px solid rgba(255,255,255,.12)', overflow: 'hidden', position: 'relative', background: palette.deep, boxShadow: '0 8px 20px rgba(0,0,0,.35)' }}>
             <img src={track.coverImage} alt="" draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'multiply', opacity: 0.9 }} />
@@ -296,9 +296,7 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
               )}
             </div>
             <div style={{ fontFamily: "'Instrument Serif',Georgia,serif", fontSize: 19, lineHeight: 1.15, minHeight: 44, color: TEXT, textShadow: SHADOW, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} aria-live="off">
-              {words.length === 0 ? <span style={{ opacity: 0.5, fontStyle: 'italic' }}>♪</span> : words.map((w, i) => (
-                <span key={i} style={w.state === 'current' ? { background: 'rgba(255,255,255,.92)', color: '#14142b', padding: '0 4px', borderRadius: 4, margin: '0 1px', textShadow: 'none' } : w.state === 'sung' ? { background: palette.a, color: palette.onA, padding: '0 3px', borderRadius: 4, margin: '0 1px', textShadow: 'none' } : { opacity: 0.8 }}>{w.text}{' '}</span>
-              ))}
+              {lyricLine === '' ? <span style={{ opacity: 0.5, fontStyle: 'italic' }}>♪</span> : lyricLine}
             </div>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: SUB, marginBottom: 3 }}><span>{formatClock(progressMs)}</span><span>{formatClock(track.durationMs)}</span></div>
