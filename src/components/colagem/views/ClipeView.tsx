@@ -8,8 +8,6 @@ import { formatTime, momentAt } from '../../../services/views/rhythm';
 import { hashString } from '../../../services/palette/trackPalette';
 import { liveCover } from '../../../services/colagem/colagem';
 
-const BAR_W = 34;
-
 /**
  * Keyframes for the camera: it never cuts — it continuously eases between these, each one either the full
  * picture (scale 1, centred) or zoomed into a detail from a different direction. Because every "zoomed in" stop
@@ -97,12 +95,7 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
       <style>{css}</style>
       <div aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>{curIdx >= 0 ? lines[curIdx].text : ''}</div>
 
-      {/* barra lateral: só decorativa, sem texto */}
-      <div style={{ width: BAR_W, flex: 'none', height: '100%', background: 'linear-gradient(180deg,#2a1f1a,#120d0a)', borderRight: '1px solid rgba(231,201,194,.25)', position: 'relative' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(231,201,194,.06) 0px, rgba(231,201,194,.06) 1px, transparent 1px, transparent 7px)' }} />
-      </div>
-
-      {/* foto do álbum: loop animado, preenchendo o resto do palco */}
+      {/* foto do álbum: loop animado, preenchendo o palco inteiro */}
       <div style={{ flex: 1, minWidth: 0, height: '100%', position: 'relative', overflow: 'hidden', background: '#000' }}>
         {track.coverImage ? (
           <img src={track.coverImage} alt={`Capa de ${track.title}`} style={{
