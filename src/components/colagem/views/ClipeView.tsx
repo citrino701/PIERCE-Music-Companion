@@ -15,13 +15,15 @@ import { liveCover } from '../../../services/colagem/colagem';
  * step, so there's no visible reset.
  */
 const DETAILS = [
-  { x: 30, y: 30 },
-  { x: 74, y: 26 },
-  { x: 62, y: 74 },
-  { x: 24, y: 68 },
+  { x: 16, y: 50 }, // esquerda
+  { x: 50, y: 20 }, // cima
+  { x: 84, y: 50 }, // direita
+  { x: 50, y: 80 }, // baixo
 ];
 const CENTER = { x: 50, y: 50 };
-const SEGMENT_S = 8;
+/** Segmento bem mais longo e zoom bem mais discreto que a primeira versão — era rápido e exagerado demais. */
+const SEGMENT_S = 18;
+const ZOOM_SCALE = 1.16;
 const smoothstep = (x: number) => x * x * (3 - 2 * x);
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
@@ -39,7 +41,7 @@ function keyframesFor(trackId: string): { x: number; y: number; zoomed: boolean 
 
 /** Deterministic, never-reset camera move: continuously eases through `keyframesFor`'s loop, forever. */
 function revealAt(t: number, trackId: string, reduced: boolean): Reveal {
-  if (reduced) return { originX: 50, originY: 50, scale: 1.08 };
+  if (reduced) return { originX: 50, originY: 50, scale: 1.04 };
   const kf = keyframesFor(trackId);
   const total = kf.length * SEGMENT_S;
   const local = ((t % total) + total) % total;
@@ -50,7 +52,7 @@ function revealAt(t: number, trackId: string, reduced: boolean): Reveal {
   return {
     originX: lerp(a.x, b.x, p),
     originY: lerp(a.y, b.y, p),
-    scale: lerp(a.zoomed ? 1.5 : 1, b.zoomed ? 1.5 : 1, p),
+    scale: lerp(a.zoomed ? ZOOM_SCALE : 1, b.zoomed ? ZOOM_SCALE : 1, p),
   };
 }
 
@@ -83,6 +85,12 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
   const gap = hasLyrics && curIdx < 0;
   const reveal = revealAt(t, track.id, reduced);
   const lyricScaleClamped = Math.min(1.3, Math.max(0.85, lyricScale));
+
+  // Anterior / atual / próxima, igual à Colagem: acha onde a linha "de verdade" atual está dentro de
+  // `real` e pega a vizinhança — funciona tanto tocando uma linha quanto num intervalo entre linhas.
+  const curRealPos = curIdx >= 0 ? real.findIndex((r) => r.i === curIdx) : -1;
+  const prevLine = curRealPos > 0 ? real[curRealPos - 1].l : curRealPos < 0 ? [...real].filter((r) => r.i < mo.index).pop()?.l : undefined;
+  const nextLine = curRealPos >= 0 ? real[curRealPos + 1]?.l : real.find((r) => r.i >= mo.index)?.l;
   const base: React.CSSProperties = { font: "500 12px 'Arimo', sans-serif", color: 'rgba(255,255,255,.72)', textShadow: '0 1px 6px rgba(0,0,0,.8)' };
 
   const seekTo = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -125,32 +133,36 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
         {/* escurecida no rodapé pra tudo ler em cima da própria foto */}
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '44%', background: 'linear-gradient(180deg, rgba(8,5,4,0) 0%, rgba(8,5,4,.78) 56%, rgba(6,3,2,.92) 100%)', pointerEvents: 'none' }} />
 
-        {/* nome/artista/álbum (canto inferior esquerdo) + letra (canto inferior direito) */}
-        <div style={{ position: 'absolute', left: 16, right: 16, bottom: 62, display: 'flex', alignItems: 'flex-end', gap: 14 }}>
-          <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ font: `700 ${Math.round(21 * lyricScaleClamped)}px/1.08 'Arimo', sans-serif`, color: '#f6ece8', textShadow: '0 2px 14px rgba(0,0,0,.65)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-            <div style={{ fontSize: 11.5, letterSpacing: '.06em', color: '#e7d9d4', textShadow: '0 1px 8px rgba(0,0,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
-            <div style={{ fontSize: 10, letterSpacing: '.08em', color: '#c4b2aa', textTransform: 'uppercase', textShadow: '0 1px 8px rgba(0,0,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Álbum · {track.album}</div>
-          </div>
+        {/* nome/artista/álbum, canto inferior esquerdo, sobre a própria foto */}
+        <div style={{ position: 'absolute', left: 16, right: 16, bottom: 62, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ font: `700 ${Math.round(21 * lyricScaleClamped)}px/1.08 'Arimo', sans-serif`, color: '#f6ece8', textShadow: '0 2px 14px rgba(0,0,0,.65)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+          <div style={{ fontSize: 11.5, letterSpacing: '.06em', color: '#e7d9d4', textShadow: '0 1px 8px rgba(0,0,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
+          <div style={{ fontSize: 10, letterSpacing: '.08em', color: '#c4b2aa', textTransform: 'uppercase', textShadow: '0 1px 8px rgba(0,0,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Álbum · {track.album}</div>
+        </div>
 
-          <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
-            {mo.line && !mo.gap && hasLyrics ? (
-              <div style={{ font: `italic 700 ${Math.round(13 * lyricScaleClamped)}px/1.32 'Instrument Serif', Georgia, serif` }}>
-                {mo.words.map((w, i) => (
-                  <span key={`${mo.index}-${i}`} style={{
-                    marginLeft: '.22em', display: 'inline-block', transition: 'color .25s, text-shadow .25s',
-                    color: i <= mo.wordIndex ? '#f6ece8' : 'rgba(246,236,232,.55)',
-                    textShadow: i === mo.wordIndex ? `0 0 18px ${pal.a}, 0 2px 10px rgba(0,0,0,.7)` : '0 2px 10px rgba(0,0,0,.7)',
-                  }}>{w.text}</span>
-                ))}
-              </div>
-            ) : (
-              <div style={{ font: "italic 700 12px 'Instrument Serif', Georgia, serif", color: 'rgba(246,236,232,.7)', textShadow: '0 2px 10px rgba(0,0,0,.7)' }}>
-                {hasLyrics ? (gap && real[0] ? `♪ ${real[0].l.text}` : '♪') : 'sem letra sincronizada'}
-              </div>
+        {/* letra: mesma fonte da Colagem (Instrument Serif), bem maior, anterior/atual/próxima empilhadas
+            e centralizadas no meio do quadro — disposição tipo "brat", sem caixa nem painel ao redor. */}
+        {hasLyrics && (
+          <div style={{ position: 'absolute', left: '8%', right: '8%', top: '34%', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, pointerEvents: 'none' }}>
+            {prevLine && (
+              <div style={{ font: `400 ${Math.round(15 * lyricScaleClamped)}px/1.25 'Instrument Serif', Georgia, serif`, color: 'rgba(246,236,232,.5)', textShadow: '0 2px 10px rgba(0,0,0,.75)' }}>{prevLine.text}</div>
+            )}
+            <div style={{ font: `400 ${Math.round(34 * lyricScaleClamped)}px/1.18 'Instrument Serif', Georgia, serif`, letterSpacing: '-0.01em' }}>
+              {curIdx >= 0 && !gap ? mo.words.map((w, i) => (
+                <span key={`${mo.index}-${i}`} style={{
+                  marginRight: '.24em', display: 'inline-block', transition: 'color .25s, text-shadow .25s',
+                  color: i <= mo.wordIndex ? '#f6ece8' : 'rgba(246,236,232,.5)',
+                  textShadow: i === mo.wordIndex ? `0 0 20px ${pal.a}, 0 2px 12px rgba(0,0,0,.8)` : '0 2px 12px rgba(0,0,0,.8)',
+                }}>{w.text}</span>
+              )) : (
+                <span style={{ color: 'rgba(246,236,232,.6)', textShadow: '0 2px 12px rgba(0,0,0,.8)' }}>♪</span>
+              )}
+            </div>
+            {nextLine && (
+              <div style={{ font: `400 ${Math.round(17 * lyricScaleClamped)}px/1.25 'Instrument Serif', Georgia, serif`, color: 'rgba(246,236,232,.5)', textShadow: '0 2px 10px rgba(0,0,0,.75)' }}>{nextLine.text}</div>
             )}
           </div>
-        </div>
+        )}
 
         {/* transporte: imersivo, sem cápsula nem fundo — só os controles sobre a foto */}
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 14, height: 30, display: 'flex', alignItems: 'center', gap: 8 }}>
