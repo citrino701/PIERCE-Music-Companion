@@ -51,7 +51,7 @@ const css = `
 .pw-bg{position:absolute;inset:0;z-index:0}
 .pw-sheen{position:absolute;inset:0;z-index:1;background:linear-gradient(165deg,rgba(0,0,0,.08),rgba(0,0,0,.4));backdrop-filter:blur(22px) saturate(1.25);-webkit-backdrop-filter:blur(22px) saturate(1.25);box-shadow:0 14px 34px rgba(0,0,0,.5)}
 .pw-content{position:relative;z-index:2;width:100%;height:100%}
-.pw-card{width:392px;height:196px;border-radius:18px;border:1px solid rgba(255,255,255,.1);display:flex;gap:12px;padding:12px}
+.pw-card{width:100%;height:100%;border-radius:18px;border:1px solid rgba(255,255,255,.1);display:flex;gap:12px;padding:12px}
 .pw-blob{animation-duration:22s;animation-iteration-count:infinite;animation-timing-function:ease-in-out}
 .pw-vinyl{border-radius:50%;animation:pw-spin 6s linear infinite}
 .pw-paused .pw-vinyl{animation-play-state:paused}
@@ -260,7 +260,7 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
   } else if (variant === 'mini') {
     const title = `${track.title} — ${track.artist}   ·   `;
     body = (
-      <div {...dragProps} className="pw-shell" style={{ width: 300, height: 48, borderRadius: 999, cursor: 'grab' }}>
+      <div {...dragProps} className="pw-shell" style={{ width: '100%', height: '100%', borderRadius: 999, cursor: 'grab' }}>
         <GlassBackdrop cover={track.coverImage} a={palette.a} deep={palette.deep} radius={999} />
         <div className="pw-sheen" style={{ borderRadius: 999, border: '1px solid rgba(255,255,255,.1)' }} />
         <div className="pw-content" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 0 14px', overflow: 'hidden' }}>
@@ -276,7 +276,7 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
     );
   } else {
     body = (
-      <div {...dragProps} className="pw-shell" style={{ width: 392, height: 196, borderRadius: 18, cursor: 'grab' }}>
+      <div {...dragProps} className="pw-shell" style={{ width: '100%', height: '100%', borderRadius: 18, cursor: 'grab' }}>
         <GlassBackdrop cover={track.coverImage} a={palette.a} deep={palette.deep} radius={18} />
         <div className="pw-sheen pw-card" />
         <div className="pw-content pw-card" style={{ border: 'none' }}>
@@ -316,7 +316,7 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
   }
 
   return (
-    <div className={`pw-root ${isPlaying ? '' : 'pw-paused'}`} style={{ ...vars, width: size.width, height: size.height }} data-testid="reduced-widget" data-variant={variant}>
+    <div className={`pw-root ${isPlaying ? '' : 'pw-paused'}`} style={vars} data-testid="reduced-widget" data-variant={variant} data-logical-size={`${size.width}x${size.height}`}>
       <style>{css}</style>
       {body}
     </div>

@@ -16,13 +16,18 @@ const pipApi = (): DocumentPiP | undefined =>
 
 export const isPipSupported = (): boolean => !!pipApi();
 
-/** Copy fonts and styles of the app into the PiP document so the widget looks the same. */
+/**
+ * Copy fonts and styles of the app into the PiP document so the widget looks the same.
+ * The widget (`.pw-root`) fills 100% of this window itself, so the document underneath must never
+ * show through as a visible color — no cream/white fallback, it has to be transparent.
+ */
 export function copyStyles(target: Document, source: Document = document): void {
   source.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
     target.head.appendChild(node.cloneNode(true));
   });
+  target.documentElement.style.background = 'transparent';
   target.body.style.margin = '0';
-  target.body.style.background = '#e9e6df';
+  target.body.style.background = 'transparent';
 }
 
 export async function openPipWindow(variant: WidgetVariant): Promise<Window | null> {

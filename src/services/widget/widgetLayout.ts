@@ -4,11 +4,17 @@ export type WidgetVariant = 'normal' | 'disc' | 'mini';
 
 export const WIDGET_VARIANTS: WidgetVariant[] = ['normal', 'disc', 'mini'];
 
-/** Logical window size per variant (matches the canvas mock: card 392x196, disc 204, pill 300x48) plus room for the drop shadow. */
+/**
+ * Logical window size per variant. The window itself IS the widget now (no background shows
+ * through): 'normal' and 'mini' shells fill 100% of the window exactly, so their size here is the
+ * widget's real on-screen size (392x196 / 300x48, rounded up a hair for border/shadow crispness).
+ * 'disc' still draws itself at a fixed 204px diameter and needs a little real margin around it for
+ * its (non-clipped) drop shadow to bleed into, so it keeps a small surrounding box.
+ */
 export const WIDGET_SIZES: Record<WidgetVariant, { width: number; height: number }> = {
-  normal: { width: 408, height: 212 },
-  disc: { width: 232, height: 232 },
-  mini: { width: 316, height: 64 },
+  normal: { width: 394, height: 198 },
+  disc: { width: 220, height: 220 },
+  mini: { width: 302, height: 50 },
 };
 
 export const WIDGET_STORAGE_KEY = 'pierce:widget';
