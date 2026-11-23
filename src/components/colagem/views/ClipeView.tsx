@@ -60,7 +60,15 @@ const css = `
 .pierce-c-btn{background:none;border:none;color:#fff;cursor:pointer;display:grid;place-items:center;border-radius:50%;transition:transform .15s;filter:drop-shadow(0 2px 8px rgba(0,0,0,.7))}
 .pierce-c-btn:hover{opacity:.82}
 .pierce-c-btn:active{transform:scale(.9)}
-@keyframes pierce-c-grain{0%,100%{opacity:.16}50%{opacity:.26}}`;
+@keyframes pierce-c-grain{0%,100%{opacity:.16}50%{opacity:.26}}
+@keyframes pierce-c-light-a{0%{transform:translateX(-30%) rotate(16deg)}100%{transform:translateX(230%) rotate(16deg)}}
+@keyframes pierce-c-light-b{0%{transform:translateX(-30%) rotate(-13deg)}100%{transform:translateX(230%) rotate(-13deg)}}`;
+
+/** Duração e atraso do brilho determinados pela faixa, igual ao resto da câmera — nunca aleatório de verdade. */
+function lightTiming(trackId: string, salt: number): { duration: number; delay: number } {
+  const h = hashString(trackId + salt);
+  return { duration: 10 + (h % 7), delay: -((h >>> 4) % 17) };
+}
 
 /**
  * Clipe — immersive: the live cover fills the whole stage (a plain rail on the left, no text on it), the camera
@@ -75,6 +83,8 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
   const pal = useTrackPalette(track);
   const lines = useTimedLines(track);
   const asciiSeed = useMemo(() => hashString(track.id) % 7, [track.id]);
+  const lightA = useMemo(() => lightTiming(track.id, 1), [track.id]);
+  const lightB = useMemo(() => lightTiming(track.id, 2), [track.id]);
 
   const real = useMemo(() => lines.map((l, i) => ({ l, i })).filter((x) => !x.l.gap), [lines]);
   const mo = momentAt(lines, t);
@@ -92,6 +102,19 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
   const prevLine = curRealPos > 0 ? real[curRealPos - 1].l : curRealPos < 0 ? [...real].filter((r) => r.i < mo.index).pop()?.l : undefined;
   const nextLine = curRealPos >= 0 ? real[curRealPos + 1]?.l : real.find((r) => r.i >= mo.index)?.l;
   const base: React.CSSProperties = { font: "500 12px 'Arimo', sans-serif", color: 'rgba(255,255,255,.72)', textShadow: '0 1px 6px rgba(0,0,0,.8)' };
+
+  // Contraste negativo pro texto da letra: `pal.onA` já é a cor (branco ou tinta escura) que lê melhor
+  // em cima da própria paleta tirada da capa, então a letra sempre fica "oposta" ao efeito que colocamos
+  // na imagem (capa escura -> letra clara, capa clara -> letra escura), e harmônica porque o brilho da
+  // palavra cantada ainda usa a cor tirada da própria capa (pal.a).
+  const lyricIsLight = pal.onA === '#ffffff';
+  const lyricOn = lyricIsLight ? '255,255,255' : '20,20,43';
+  const lyricHaloRgb = lyricIsLight ? '0,0,0' : '255,255,255';
+  const lyricDim = `rgba(${lyricOn},.55)`;
+  const lyricBright = `rgba(${lyricOn},1)`;
+  const lyricHaloSoft = `0 2px 10px rgba(${lyricHaloRgb},${lyricIsLight ? '.75' : '.85'})`;
+  const lyricHaloStrong = `0 2px 12px rgba(${lyricHaloRgb},${lyricIsLight ? '.8' : '.9'})`;
+  const lyricGlow = `0 0 20px ${pal.a}, ${lyricHaloStrong}`;
 
   const seekTo = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -130,6 +153,22 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
         {/* toque de cor da paleta da faixa */}
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${pal.a}, ${pal.deep})`, mixBlendMode: 'soft-light', opacity: 0.5, pointerEvents: 'none', transition: 'background 1s' }} />
 
+        {/* luzes passando: dois feixes diagonais varrendo a capa, puramente decorativos e determinísticos */}
+        {!reduced && (
+          <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+            <div style={{
+              position: 'absolute', top: '-30%', left: '-10%', width: '45%', height: '160%',
+              background: 'linear-gradient(100deg, transparent 0%, rgba(255,255,255,.05) 38%, rgba(255,255,255,.3) 50%, rgba(255,255,255,.05) 62%, transparent 100%)',
+              mixBlendMode: 'screen', animation: `pierce-c-light-a ${lightA.duration}s linear infinite`, animationDelay: `${lightA.delay}s`,
+            }} />
+            <div style={{
+              position: 'absolute', top: '-30%', left: '-10%', width: '30%', height: '160%',
+              background: `linear-gradient(100deg, transparent 0%, transparent 40%, ${pal.a}55 50%, transparent 60%, transparent 100%)`,
+              mixBlendMode: 'color-dodge', animation: `pierce-c-light-b ${lightB.duration}s linear infinite`, animationDelay: `${lightB.delay}s`,
+            }} />
+          </div>
+        )}
+
         {/* escurecida no rodapé pra tudo ler em cima da própria foto */}
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '44%', background: 'linear-gradient(180deg, rgba(8,5,4,0) 0%, rgba(8,5,4,.78) 56%, rgba(6,3,2,.92) 100%)', pointerEvents: 'none' }} />
 
@@ -145,21 +184,21 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
         {hasLyrics && (
           <div style={{ position: 'absolute', left: '8%', right: '8%', top: '34%', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, pointerEvents: 'none' }}>
             {prevLine && (
-              <div style={{ font: `400 ${Math.round(15 * lyricScaleClamped)}px/1.25 'Instrument Serif', Georgia, serif`, color: 'rgba(246,236,232,.5)', textShadow: '0 2px 10px rgba(0,0,0,.75)' }}>{prevLine.text}</div>
+              <div style={{ font: `400 ${Math.round(15 * lyricScaleClamped)}px/1.25 'Instrument Serif', Georgia, serif`, color: lyricDim, textShadow: lyricHaloSoft, transition: 'color .6s' }}>{prevLine.text}</div>
             )}
             <div style={{ font: `400 ${Math.round(34 * lyricScaleClamped)}px/1.18 'Instrument Serif', Georgia, serif`, letterSpacing: '-0.01em' }}>
               {curIdx >= 0 && !gap ? mo.words.map((w, i) => (
                 <span key={`${mo.index}-${i}`} style={{
                   marginRight: '.24em', display: 'inline-block', transition: 'color .25s, text-shadow .25s',
-                  color: i <= mo.wordIndex ? '#f6ece8' : 'rgba(246,236,232,.5)',
-                  textShadow: i === mo.wordIndex ? `0 0 20px ${pal.a}, 0 2px 12px rgba(0,0,0,.8)` : '0 2px 12px rgba(0,0,0,.8)',
+                  color: i <= mo.wordIndex ? lyricBright : lyricDim,
+                  textShadow: i === mo.wordIndex ? lyricGlow : lyricHaloStrong,
                 }}>{w.text}</span>
               )) : (
-                <span style={{ color: 'rgba(246,236,232,.6)', textShadow: '0 2px 12px rgba(0,0,0,.8)' }}>♪</span>
+                <span style={{ color: lyricDim, textShadow: lyricHaloStrong, transition: 'color .6s' }}>♪</span>
               )}
             </div>
             {nextLine && (
-              <div style={{ font: `400 ${Math.round(17 * lyricScaleClamped)}px/1.25 'Instrument Serif', Georgia, serif`, color: 'rgba(246,236,232,.5)', textShadow: '0 2px 10px rgba(0,0,0,.75)' }}>{nextLine.text}</div>
+              <div style={{ font: `400 ${Math.round(17 * lyricScaleClamped)}px/1.25 'Instrument Serif', Georgia, serif`, color: lyricDim, textShadow: lyricHaloSoft, transition: 'color .6s' }}>{nextLine.text}</div>
             )}
           </div>
         )}

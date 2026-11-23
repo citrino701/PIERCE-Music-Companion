@@ -44,14 +44,14 @@ const VARIANT_BUTTONS: { id: WidgetVariant; label: string; icon: React.ReactNode
 const css = `
 .pw-root,.pw-root *{box-sizing:border-box}
 .pw-root{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:transparent;user-select:none;-webkit-user-select:none;font-family:'DM Mono','Space Mono',ui-monospace,monospace;color:${TEXT}}
-.pw-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.34);background:rgba(255,255,255,.14);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border-radius:999px;cursor:pointer;padding:0;transition:transform .12s,background .15s}
-.pw-btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.24)}
+.pw-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;border-radius:999px;cursor:pointer;padding:0;transition:transform .12s,background .15s}
+.pw-btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.16)}
 .pw-btn:focus-visible{outline:3px solid var(--pw-deep);outline-offset:2px}
 .pw-shell{position:relative;overflow:hidden}
 .pw-bg{position:absolute;inset:0;z-index:0}
-.pw-sheen{position:absolute;inset:0;z-index:1;background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.05));backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);box-shadow:0 18px 46px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.35)}
+.pw-sheen{position:absolute;inset:0;z-index:1;background:linear-gradient(165deg,rgba(0,0,0,.08),rgba(0,0,0,.4));backdrop-filter:blur(22px) saturate(1.25);-webkit-backdrop-filter:blur(22px) saturate(1.25);box-shadow:0 14px 34px rgba(0,0,0,.5)}
 .pw-content{position:relative;z-index:2;width:100%;height:100%}
-.pw-card{width:392px;height:196px;border-radius:26px;border:1px solid rgba(255,255,255,.32);display:flex;gap:12px;padding:12px}
+.pw-card{width:392px;height:196px;border-radius:18px;border:1px solid rgba(255,255,255,.1);display:flex;gap:12px;padding:12px}
 .pw-blob{animation-duration:22s;animation-iteration-count:infinite;animation-timing-function:ease-in-out}
 .pw-vinyl{border-radius:50%;animation:pw-spin 6s linear infinite}
 .pw-paused .pw-vinyl{animation-play-state:paused}
@@ -65,12 +65,16 @@ const css = `
 @media (prefers-reduced-motion:reduce){.pw-vinyl,.pw-marquee,.pw-blob{animation:none}}
 `;
 
-/** Blurred cover + two drifting colour blobs, clipped to whatever shape the parent (card/disc/pill) gives it — the same trick the Vidro visualization uses, shrunk to widget size. */
+/**
+ * Base escura tingida pela própria paleta do álbum (nunca cai pro branco, mesmo sem suporte a
+ * backdrop-filter) + capa borrada + dois borrões de cor por cima, clipados na forma que o pai
+ * (card/disco/pílula) define — a mesma técnica da visualização Vidro, encolhida pro tamanho do widget.
+ */
 const GlassBackdrop: React.FC<{ cover: string; a: string; deep: string; radius: number | string }> = ({ cover, a, deep, radius }) => (
-  <div aria-hidden className="pw-bg" style={{ borderRadius: radius, overflow: 'hidden' }}>
-    {cover && <img src={cover} alt="" style={{ position: 'absolute', inset: '-25%', width: '150%', height: '150%', objectFit: 'cover', filter: 'blur(28px) saturate(1.6) brightness(.82)', opacity: 0.6 }} />}
-    <div className="pw-blob" style={{ position: 'absolute', width: '75%', height: '75%', left: '-18%', top: '-22%', background: a, opacity: 0.42, filter: 'blur(28px)', animationName: 'pw-blob-a' }} />
-    <div className="pw-blob" style={{ position: 'absolute', width: '62%', height: '62%', right: '-16%', bottom: '-16%', background: deep, opacity: 0.5, filter: 'blur(28px)', animationName: 'pw-blob-b' }} />
+  <div aria-hidden className="pw-bg" style={{ borderRadius: radius, overflow: 'hidden', background: deep }}>
+    {cover && <img src={cover} alt="" style={{ position: 'absolute', inset: '-25%', width: '150%', height: '150%', objectFit: 'cover', filter: 'blur(28px) saturate(1.4) brightness(.6)', opacity: 0.55 }} />}
+    <div className="pw-blob" style={{ position: 'absolute', width: '75%', height: '75%', left: '-18%', top: '-22%', background: a, opacity: 0.3, filter: 'blur(28px)', animationName: 'pw-blob-a' }} />
+    <div className="pw-blob" style={{ position: 'absolute', width: '62%', height: '62%', right: '-16%', bottom: '-16%', background: deep, opacity: 0.55, filter: 'blur(28px)', animationName: 'pw-blob-b' }} />
   </div>
 );
 
@@ -258,7 +262,7 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
     body = (
       <div {...dragProps} className="pw-shell" style={{ width: 300, height: 48, borderRadius: 999, cursor: 'grab' }}>
         <GlassBackdrop cover={track.coverImage} a={palette.a} deep={palette.deep} radius={999} />
-        <div className="pw-sheen" style={{ borderRadius: 999, border: '1px solid rgba(255,255,255,.3)' }} />
+        <div className="pw-sheen" style={{ borderRadius: 999, border: '1px solid rgba(255,255,255,.1)' }} />
         <div className="pw-content" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 0 14px', overflow: 'hidden' }}>
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', fontSize: 11, color: TEXT, textShadow: SHADOW }} aria-label={`${track.title} — ${track.artist}`}>
             <span className="pw-marquee">{title}{title}</span>
@@ -272,11 +276,11 @@ export const ReducedWidget: React.FC<ReducedWidgetProps> = ({
     );
   } else {
     body = (
-      <div {...dragProps} className="pw-shell" style={{ width: 392, height: 196, borderRadius: 26, cursor: 'grab' }}>
-        <GlassBackdrop cover={track.coverImage} a={palette.a} deep={palette.deep} radius={26} />
+      <div {...dragProps} className="pw-shell" style={{ width: 392, height: 196, borderRadius: 18, cursor: 'grab' }}>
+        <GlassBackdrop cover={track.coverImage} a={palette.a} deep={palette.deep} radius={18} />
         <div className="pw-sheen pw-card" />
         <div className="pw-content pw-card" style={{ border: 'none' }}>
-          <div aria-hidden style={{ width: 140, flex: '0 0 140px', borderRadius: 14, border: '1px solid rgba(255,255,255,.3)', overflow: 'hidden', position: 'relative', background: palette.a, boxShadow: '0 8px 20px rgba(0,0,0,.3)' }}>
+          <div aria-hidden style={{ width: 140, flex: '0 0 140px', borderRadius: 12, border: '1px solid rgba(255,255,255,.12)', overflow: 'hidden', position: 'relative', background: palette.deep, boxShadow: '0 8px 20px rgba(0,0,0,.35)' }}>
             <img src={track.coverImage} alt="" draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'multiply', opacity: 0.9 }} />
             <pre style={{ position: 'absolute', inset: 0, margin: 0, fontSize: 5.5, lineHeight: '6px', color: palette.onA, opacity: 0.35, overflow: 'hidden', pointerEvents: 'none' }}>{ascii}</pre>
           </div>
