@@ -8,43 +8,56 @@ import { beatInfo, formatTime, momentAt } from '../../../services/views/rhythm';
 import { hashString } from '../../../services/palette/trackPalette';
 import { liveCover, seeded } from '../../../services/colagem/colagem';
 
-/** Seconds each "shot" lasts before the camera hard-cuts to a new pan/zoom target (like jumping between cool parts of a clip). */
-const SCENE_S = 7;
+/** Card geometry: a tall "story" card (matches the hand-drawn layout) that scales to fit the stage. */
+const CARD_W = 390;
+const CARD_H = 844;
+const DOCK_H = 64;
+const DOCK_GAP = 16;
+const BAR_W = 26;
 
-const glass: React.CSSProperties = {
-  background: 'rgba(8,6,14,.74)',
-  backdropFilter: 'blur(18px) saturate(1.3)',
-  WebkitBackdropFilter: 'blur(18px) saturate(1.3)',
-  border: '1px solid rgba(255,255,255,.14)',
-  boxShadow: '0 22px 60px rgba(0,0,0,.5)',
-};
+/** One "shot": where the camera starts zoomed in before slowly pulling back to reveal the whole cover. */
+const SCENES = [
+  { origin: '30% 30%' },
+  { origin: '74% 26%' },
+  { origin: '62% 74%' },
+  { origin: '24% 68%' },
+];
+const HOLD_ZOOMED_S = 0.7;
+const REVEAL_S = 11;
+const HOLD_REVEALED_S = 4.2;
+const CYCLE_S = HOLD_ZOOMED_S + REVEAL_S + HOLD_REVEALED_S;
+const smoothstep = (x: number) => x * x * (3 - 2 * x);
+
+interface Reveal { origin: string; scale: number; blur: number }
+
+/**
+ * Deterministic "reveal" for the current instant: the cover starts zoomed into one corner/detail, holds a beat,
+ * then pulls back slowly to show the whole picture, holds there, and cuts straight to a new detail — never
+ * reversing back the way it came, so it never reads as a simple zoom-in/zoom-out loop.
+ */
+function revealAt(t: number, trackId: string, reduced: boolean): Reveal {
+  if (reduced) return { origin: '50% 50%', scale: 1.08, blur: 0 };
+  const cycle = Math.floor(t / CYCLE_S);
+  const local = t - cycle * CYCLE_S;
+  const scene = SCENES[(((cycle % SCENES.length) + hashString(trackId)) % SCENES.length + SCENES.length) % SCENES.length];
+  let progress = 0;
+  if (local >= HOLD_ZOOMED_S && local < HOLD_ZOOMED_S + REVEAL_S) progress = smoothstep((local - HOLD_ZOOMED_S) / REVEAL_S);
+  else if (local >= HOLD_ZOOMED_S + REVEAL_S) progress = 1;
+  return { origin: scene.origin, scale: 1.55 + (1 - 1.55) * progress, blur: 3 + (0 - 3) * progress };
+}
 
 const css = `
 .pierce-c-btn{background:none;border:none;color:#fff;cursor:pointer;display:grid;place-items:center;border-radius:50%;transition:background .2s,transform .15s}
 .pierce-c-btn:hover{background:rgba(255,255,255,.16)}
-.pierce-c-btn:active{transform:scale(.92)}`;
-
-interface Shot { scale: number; x: number; y: number; cut: number }
-
-/** Deterministic "camera move" for one scene: eases between two random pan/zoom points, seeded per track + scene. */
-function shotAt(t: number, trackId: string, reduced: boolean): Shot {
-  if (reduced) return { scale: 1.05, x: 0, y: 0, cut: 0 };
-  const scene = Math.floor(t / SCENE_S);
-  const local = (t - scene * SCENE_S) / SCENE_S;
-  const ease = local * local * (3 - 2 * local);
-  const r = (tag: string) => seeded(hashString(`${trackId}-${scene}-${tag}`))();
-  const fromX = (r('x0') - 0.5) * 18, toX = (r('x1') - 0.5) * 18;
-  const fromY = (r('y0') - 0.5) * 15, toY = (r('y1') - 0.5) * 15;
-  const fromS = 1.04 + r('s0') * 0.08, toS = 1.1 + r('s1') * 0.14;
-  // a quick flash right at the cut, fading out over the first ~12% of the shot
-  const cut = Math.max(0, 1 - local / 0.12);
-  return { scale: fromS + (toS - fromS) * ease, x: fromX + (toX - fromX) * ease, y: fromY + (toY - fromY) * ease, cut };
-}
+.pierce-c-btn:active{transform:scale(.92)}
+@keyframes pierce-c-grain{0%,100%{opacity:.16}50%{opacity:.26}}
+@keyframes pierce-c-bar{0%,100%{opacity:.9}50%{opacity:1}}`;
 
 /**
- * Clipe — a generated loop of the live cover (or its ASCII fallback) as the main/hero visual, panned and zoomed
- * like a camera, cutting to a new "shot" every few seconds; the lyrics sit in a glass panel off to the side, in a
- * colour that always reads against the busy footage behind it.
+ * Clipe — a tall "story" card: a vertical rail on the left, the live cover as a boxed loop that starts zoomed on a
+ * detail and slowly reveals the whole picture before cutting to a new one, and the title/artist/album plus the
+ * current lyric sitting right on top of the cover's lower edge (scrim behind them keeps it legible), with the
+ * transport docked underneath.
  */
 export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlaying, shuffleEnabled, lyricScale, lyricOffsetMs, onToggleShuffle, onTogglePlay, onSeek, onPrevious, onNext }) => {
   const [host, box] = useBox<HTMLDivElement>();
@@ -60,17 +73,16 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
   const mo = momentAt(lines, t);
   const hasLyrics = real.length > 0;
   const curIdx = mo.line && !mo.line.gap ? mo.index : -1;
-  const prev = [...real].reverse().find((x) => x.i < (curIdx >= 0 ? curIdx : mo.index + 1));
-  const next = real.find((x) => x.i > (curIdx >= 0 ? curIdx : mo.index));
   const durationS = Math.max(1, track.durationMs / 1000);
   const progress = Math.min(1, Math.max(0, t / durationS));
   const gap = hasLyrics && curIdx < 0;
-  const wide = box.w / box.h >= 1.15 && box.w >= 760;
-  const panelW = wide ? Math.min(420, Math.max(300, box.w * 0.3)) : Math.max(box.w - 40, 260);
-  const lyricFont = Math.round(Math.max(18, Math.min(34, (wide ? panelW : box.w) * 0.072)) * Math.min(1.4, Math.max(0.8, lyricScale)));
-  const base: React.CSSProperties = { font: "500 13px 'Arimo', sans-serif", color: 'rgba(255,255,255,.62)' };
-  const shot = shotAt(t, track.id, reduced);
-  const scale = (isPlaying ? shot.scale : Math.min(shot.scale, 1.06)) * (1 + 0.01 * k);
+  const reveal = revealAt(t, track.id, reduced);
+  const liveScale = reveal.scale * (1 + 0.01 * k);
+  const lyricScaleClamped = Math.min(1.3, Math.max(0.85, lyricScale));
+
+  const totalH = CARD_H + DOCK_GAP + DOCK_H;
+  const s = Math.min((box.w - 32) / CARD_W, (box.h - 32) / totalH, 1.15);
+  const base: React.CSSProperties = { font: "500 11px 'Arimo', sans-serif", color: 'rgba(255,255,255,.62)' };
 
   const seekTo = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -78,90 +90,111 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
   };
 
   return (
-    <div ref={host} data-testid="clipe-view" style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#040308', color: '#fff', fontFamily: "'Arimo', sans-serif" }}>
+    <div ref={host} data-testid="clipe-view" style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#0c0a08', color: '#fff', fontFamily: "'Arimo', sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <style>{css}</style>
-
-      {/* Hero: the cover (or its ASCII fallback) as a generated loop, panned/zoomed like a camera, cutting shots every few seconds */}
-      <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-        <div style={{
-          position: 'absolute', inset: '-8%', width: '116%', height: '116%',
-          transform: `translate3d(${shot.x}%, ${shot.y}%, 0) scale(${scale})`,
-          transition: reduced ? 'none' : 'transform .08s linear',
-          filter: 'saturate(1.25) contrast(1.08) brightness(.92)',
-        }}>
-          {track.coverImage ? (
-            <img src={track.coverImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <pre aria-hidden="true" style={{
-              position: 'absolute', inset: 0, margin: 0, width: '100%', height: '100%', display: 'grid', placeItems: 'center',
-              font: "26px/1.08 'DM Mono', monospace", color: 'var(--track-b)', whiteSpace: 'pre', transition: 'color .8s',
-            }}>{liveCover(t, asciiSeed, 96, 42)}</pre>
-          )}
-        </div>
-        {/* colour grade from the track's own palette, so the loop always feels tied to the song */}
-        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${pal.a}, ${pal.deep})`, mixBlendMode: 'color', opacity: 0.4, transition: 'background 1s' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 85% 80% at 50% 50%, rgba(0,0,0,0) 40%, rgba(2,1,6,.82) 100%)' }} />
-        <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, mixBlendMode: 'overlay', opacity: 0.3 }}>
-          <filter id="cGrain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" /><feColorMatrix type="saturate" values="0" /></filter>
-          <rect width="100%" height="100%" filter="url(#cGrain)" />
-        </svg>
-        {/* flash at each cut, and a soft pulse on the kick */}
-        <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: Math.max(shot.cut * 0.1, k * 0.05), pointerEvents: 'none', transition: 'opacity .1s' }} />
-        <div style={{ position: 'absolute', left: 14, top: 12, padding: '3px 9px', background: 'rgba(0,0,0,.5)', color: '#fff', font: "10px 'DM Mono', monospace", letterSpacing: '0.1em', border: '1px solid rgba(255,255,255,.25)' }}>CLIPE · LOOP DA CAPA</div>
-      </div>
-
       <div aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>{curIdx >= 0 ? lines[curIdx].text : ''}</div>
 
-      {/* Lyrics "de ladinho": a glass panel docked to the side (or bottom, narrow), always legible over the footage */}
-      <div style={{
-        position: 'absolute', display: 'flex', flexDirection: 'column', gap: 12, boxSizing: 'border-box',
-        ...(wide
-          ? { right: 24, top: 24, bottom: 24, width: panelW, justifyContent: 'center' }
-          : { left: 20, right: 20, bottom: 18, width: panelW }),
-      }}>
-        <div style={{ ...glass, borderRadius: 22, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ ...base, letterSpacing: '.16em', textTransform: 'uppercase', fontSize: 10.5 }}>{isPlaying ? 'tocando agora' : 'pausado'}</div>
-          <div>
-            <div style={{ font: '700 17px \'Arimo\', sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-            <div style={{ ...base, fontSize: 13, marginTop: 1 }}>{track.artist}</div>
+      <div style={{ width: CARD_W, height: totalH, flex: 'none', transform: `scale(${s})`, display: 'flex', flexDirection: 'column', gap: DOCK_GAP }}>
+
+        {/* THE CARD */}
+        <div style={{ width: CARD_W, height: CARD_H, flex: 'none', display: 'flex', background: '#0c0a08', borderRadius: 14, overflow: 'hidden', boxShadow: '0 30px 70px rgba(0,0,0,.6)' }}>
+
+          {/* barra lateral */}
+          <div style={{ width: BAR_W, flex: 'none', height: '100%', background: 'linear-gradient(180deg,#2a1f1a,#120d0a)', borderRight: '1px solid rgba(231,201,194,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(231,201,194,.06) 0px, rgba(231,201,194,.06) 1px, transparent 1px, transparent 7px)' }} />
+            <div style={{ transform: 'rotate(-90deg)', whiteSpace: 'nowrap', font: "10px 'DM Mono', monospace", letterSpacing: '.32em', color: '#e7c9c2', animation: reduced ? 'none' : 'pierce-c-bar 4s ease-in-out infinite' }}>
+              {track.artist.toUpperCase()} · {track.title.toUpperCase()}
+            </div>
           </div>
-          <div style={{ ...base, fontSize: Math.max(12, lyricFont * 0.4), opacity: 0.6, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', minHeight: 16 }}>{prev?.l.text ?? ''}</div>
-          <div style={{ minHeight: lyricFont * 2.4, display: 'flex', alignItems: 'center' }}>
-            {mo.line && !mo.gap && hasLyrics ? (
-              <div style={{ font: `700 ${lyricFont}px/1.22 'Arimo', sans-serif`, letterSpacing: '-.01em' }}>
-                {mo.words.map((w, i) => (
-                  <span key={`${mo.index}-${i}`} style={{
-                    marginRight: '.28em', display: 'inline-block', transition: 'color .25s, text-shadow .25s, transform .25s',
-                    color: i <= mo.wordIndex ? '#fff' : 'rgba(255,255,255,.4)',
-                    textShadow: i === mo.wordIndex ? `0 0 24px ${pal.a}, 0 0 4px rgba(255,255,255,.6)` : 'none',
-                    transform: i === mo.wordIndex && !reduced ? 'translateY(-2px)' : 'none',
-                  }}>{w.text}</span>
-                ))}
+
+          {/* conteúdo */}
+          <div style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', padding: 16, boxSizing: 'border-box' }}>
+
+            {/* foto do álbum: loop animado, com o texto sobreposto nela */}
+            <div style={{ width: '100%', flex: 1, minHeight: 0, position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#000' }}>
+              {track.coverImage ? (
+                <img src={track.coverImage} alt={`Capa de ${track.title}`} style={{
+                  position: 'absolute', left: '50%', top: '50%', width: '140%', height: '140%', minWidth: '140%', minHeight: '140%', objectFit: 'cover',
+                  transform: `translate(-50%, -50%) scale(${liveScale})`, transformOrigin: reveal.origin,
+                  filter: `blur(${reveal.blur}px) saturate(1.08) contrast(1.04)`,
+                }} />
+              ) : (
+                <pre aria-hidden="true" style={{
+                  position: 'absolute', left: '50%', top: '50%', margin: 0, width: '140%', height: '140%', display: 'grid', placeItems: 'center',
+                  font: "15px/1.08 'DM Mono', monospace", color: 'var(--track-b)', whiteSpace: 'pre', transition: 'color .8s',
+                  transform: `translate(-50%, -50%) scale(${liveScale})`, transformOrigin: reveal.origin, filter: `blur(${reveal.blur}px)`,
+                }}>{liveCover(t, asciiSeed, 64, 30)}</pre>
+              )}
+
+              {/* grão de filme */}
+              <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, mixBlendMode: 'overlay', animation: reduced ? 'none' : 'pierce-c-grain 2.6s ease-in-out infinite' }}>
+                <filter id="cGrain"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" /><feColorMatrix type="saturate" values="0" /></filter>
+                <rect width="100%" height="100%" filter="url(#cGrain)" />
+              </svg>
+
+              {/* vinheta */}
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 78% 72% at 50% 40%, rgba(0,0,0,0) 40%, rgba(6,3,2,.74) 100%)', pointerEvents: 'none' }} />
+              {/* toque de cor da paleta da faixa */}
+              <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${pal.a}, ${pal.deep})`, mixBlendMode: 'soft-light', opacity: 0.5, pointerEvents: 'none', transition: 'background 1s' }} />
+
+              <div style={{ position: 'absolute', left: 10, top: 10, padding: '3px 8px', background: 'rgba(0,0,0,.45)', border: '1px solid rgba(231,201,194,.35)', font: "9px 'DM Mono', monospace", letterSpacing: '.14em', color: '#f3e6e1' }}>
+                {isPlaying ? 'LOOP · CAPA VIVA' : 'PAUSADO'}
               </div>
-            ) : (
-              <div style={{ ...base, fontSize: Math.max(14, lyricFont * 0.56) }}>{hasLyrics ? (gap && real[0] ? `♪ ${real[0].l.text}` : '♪') : 'sem letra sincronizada para esta faixa'}</div>
-            )}
+
+              {/* escurecida no rodapé pra letra/nome lerem em cima da própria foto */}
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '48%', background: 'linear-gradient(180deg, rgba(8,5,4,0) 0%, rgba(8,5,4,.78) 56%, rgba(6,3,2,.93) 100%)', pointerEvents: 'none' }} />
+
+              {/* texto sobre a foto */}
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '0 14px 14px', boxSizing: 'border-box', display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+                <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ font: `700 ${Math.round(21 * lyricScaleClamped)}px/1.08 'Arimo', sans-serif`, color: '#f6ece8', textShadow: '0 2px 14px rgba(0,0,0,.65)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                  <div style={{ fontSize: 11.5, letterSpacing: '.06em', color: '#e7d9d4', textShadow: '0 1px 8px rgba(0,0,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.artist}</div>
+                  <div style={{ fontSize: 10, letterSpacing: '.08em', color: '#c4b2aa', textTransform: 'uppercase', textShadow: '0 1px 8px rgba(0,0,0,.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Álbum · {track.album}</div>
+                </div>
+
+                <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right', paddingBottom: 1 }}>
+                  {mo.line && !mo.gap && hasLyrics ? (
+                    <div style={{ font: `italic 700 ${Math.round(12.5 * lyricScaleClamped)}px/1.32 'Instrument Serif', Georgia, serif` }}>
+                      {mo.words.map((w, i) => (
+                        <span key={`${mo.index}-${i}`} style={{
+                          marginLeft: '.22em', display: 'inline-block', transition: 'color .25s, text-shadow .25s',
+                          color: i <= mo.wordIndex ? '#f6ece8' : 'rgba(246,236,232,.55)',
+                          textShadow: i === mo.wordIndex ? `0 0 18px ${pal.a}, 0 2px 10px rgba(0,0,0,.7)` : '0 2px 10px rgba(0,0,0,.7)',
+                        }}>{w.text}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ font: "italic 700 12px 'Instrument Serif', Georgia, serif", color: 'rgba(246,236,232,.7)', textShadow: '0 2px 10px rgba(0,0,0,.7)' }}>
+                      {hasLyrics ? (gap && real[0] ? `♪ ${real[0].l.text}` : '♪') : 'sem letra sincronizada'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <div style={{ ...base, fontSize: Math.max(12, lyricFont * 0.4), opacity: 0.45, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', minHeight: 16 }}>{next?.l.text ?? ''}</div>
         </div>
 
-        <div style={{ ...glass, borderRadius: 999, padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 9 }}>
-          <button type="button" className="pierce-c-btn" aria-label="Faixa anterior" onClick={onPrevious} style={{ width: 36, height: 36 }}><SkipBack size={18} fill="currentColor" /></button>
-          <button type="button" className="pierce-c-btn" aria-label={isPlaying ? 'Pausar' : 'Tocar'} onClick={onTogglePlay} style={{ width: 42, height: 42, background: 'rgba(255,255,255,.18)' }}>
-            {isPlaying ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" />}
+        {/* TRANSPORTE */}
+        <div style={{
+          width: CARD_W, height: DOCK_H, flex: 'none', boxSizing: 'border-box', borderRadius: 999, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 9,
+          background: 'rgba(18,13,10,.82)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(231,201,194,.18)',
+        }}>
+          <button type="button" className="pierce-c-btn" aria-label="Faixa anterior" onClick={onPrevious} style={{ width: 34, height: 34 }}><SkipBack size={17} fill="currentColor" /></button>
+          <button type="button" className="pierce-c-btn" aria-label={isPlaying ? 'Pausar' : 'Tocar'} onClick={onTogglePlay} style={{ width: 40, height: 40, background: 'rgba(255,255,255,.14)' }}>
+            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
           </button>
-          <button type="button" className="pierce-c-btn" aria-label="Próxima faixa" onClick={onNext} style={{ width: 36, height: 36 }}><SkipForward size={18} fill="currentColor" /></button>
-          <span style={{ ...base, fontVariantNumeric: 'tabular-nums', minWidth: 30, fontSize: 12, textAlign: 'right' }}>{formatTime(t)}</span>
+          <button type="button" className="pierce-c-btn" aria-label="Próxima faixa" onClick={onNext} style={{ width: 34, height: 34 }}><SkipForward size={17} fill="currentColor" /></button>
+          <span style={{ ...base, fontVariantNumeric: 'tabular-nums', minWidth: 28, textAlign: 'right' }}>{formatTime(t)}</span>
           <div role="slider" tabIndex={0} aria-label="Posição da faixa" aria-valuemin={0} aria-valuemax={Math.round(durationS)} aria-valuenow={Math.round(t)} onClick={seekTo}
             onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.stopPropagation(); onSeek(progressMs + 5000); } if (e.key === 'ArrowLeft') { e.stopPropagation(); onSeek(Math.max(0, progressMs - 5000)); } }}
             style={{ flex: 1, height: 16, display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-            <div style={{ position: 'relative', width: '100%', height: 4, borderRadius: 3, background: 'rgba(255,255,255,.22)' }}>
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${progress * 100}%`, borderRadius: 3, background: '#fff' }} />
-              <div style={{ position: 'absolute', left: `${progress * 100}%`, top: '50%', width: 10, height: 10, marginLeft: -5, marginTop: -5, borderRadius: '50%', background: '#fff', boxShadow: '0 0 10px rgba(255,255,255,.7)' }} />
+            <div style={{ position: 'relative', width: '100%', height: 4, borderRadius: 3, background: 'rgba(231,201,194,.22)' }}>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${progress * 100}%`, borderRadius: 3, background: '#e7c9c2' }} />
+              <div style={{ position: 'absolute', left: `${progress * 100}%`, top: '50%', width: 9, height: 9, marginLeft: -4.5, marginTop: -4.5, borderRadius: '50%', background: '#f6ece8', boxShadow: '0 0 10px rgba(231,201,194,.7)' }} />
             </div>
           </div>
-          <span style={{ ...base, fontVariantNumeric: 'tabular-nums', minWidth: 30, fontSize: 12 }}>{formatTime(durationS)}</span>
-          <button type="button" className="pierce-c-btn" aria-label="Aleatório" aria-pressed={shuffleEnabled} onClick={onToggleShuffle} style={{ width: 32, height: 32, opacity: shuffleEnabled ? 1 : 0.55, background: shuffleEnabled ? 'rgba(255,255,255,.2)' : undefined }}><Shuffle size={15} /></button>
+          <span style={{ ...base, fontVariantNumeric: 'tabular-nums', minWidth: 28 }}>{formatTime(durationS)}</span>
+          <button type="button" className="pierce-c-btn" aria-label="Aleatório" aria-pressed={shuffleEnabled} onClick={onToggleShuffle} style={{ width: 30, height: 30, opacity: shuffleEnabled ? 1 : 0.55, background: shuffleEnabled ? 'rgba(255,255,255,.18)' : undefined }}><Shuffle size={14} /></button>
         </div>
       </div>
     </div>
