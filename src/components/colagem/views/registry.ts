@@ -5,6 +5,7 @@ import { RespiraView } from './RespiraView';
 import { CacaView } from './CacaView';
 import { PontilhadoView } from './PontilhadoView';
 import { VidroView } from './VidroView';
+import { ClipeView } from './ClipeView';
 
 export interface StageViewDef {
   /** Stored in the prefs (`viewId`); never rename it once released. */
@@ -24,6 +25,7 @@ export const STAGE_VIEWS: StageViewDef[] = [
   { id: 'respira', label: 'Respira', description: 'H: cartaz de letras em caixas que incham no ritmo.', Component: RespiraView },
   { id: 'caca', label: 'Caça-letras', description: 'K: a letra escondida numa grade de letras soltas; o cantado vira janela da capa.', Component: CacaView },
   { id: 'vidro', label: 'Vidro', description: 'Capa em destaque, fundo que derrete nas cores da faixa e letra em painel de vidro.', Component: VidroView },
+  { id: 'clipe', label: 'Clipe', description: 'A capa viva vira um loop de clipe, com câmera em movimento, e a letra de ladinho num painel de vidro.', Component: ClipeView },
   { id: 'pontilhado', label: 'Pontilhado', description: 'L: cada palavra é uma nuvem de pontos; o mouse é um ventilador.', Component: PontilhadoView },
 ];
 
