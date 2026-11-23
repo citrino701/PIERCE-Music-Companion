@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pause, Play, Shuffle, SkipBack, SkipForward } from 'lucide-react';
 import type { StageViewProps } from './types';
 import { useBox, useFrameTime, useReducedMotion } from './hooks';
@@ -7,6 +7,46 @@ import { useTrackPalette } from '../useTrackPalette';
 import { formatTime, momentAt } from '../../../services/views/rhythm';
 import { hashString } from '../../../services/palette/trackPalette';
 import { liveCover } from '../../../services/colagem/colagem';
+
+/**
+ * Brilho médio real da capa (0 escura .. 1 clara), lido direto dos pixels — ao contrário de `TrackPalette`,
+ * cujas cores são sempre construídas num tom "de UI" fixo (saturação/luminância escolhidas pra ficarem
+ * bonitas, não pra representar o quão clara ou escura a foto de verdade é). É isso que decide se a letra
+ * fica clara ou escura; enquanto não carrega (ou a capa é inacessível), null, e o chamador assume "escura".
+ */
+function useCoverBrightness(coverImage: string | undefined): number | null {
+  const [brightness, setBrightness] = useState<number | null>(null);
+  useEffect(() => {
+    setBrightness(null);
+    if (!coverImage) return;
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (cancelled) return;
+      try {
+        const c = document.createElement('canvas');
+        c.width = 16; c.height = 16;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, 16, 16);
+        const { data } = ctx.getImageData(0, 0, 16, 16);
+        let sum = 0, n = 0;
+        for (let i = 0; i + 3 < data.length; i += 4) {
+          if (data[i + 3] < 128) continue;
+          sum += 0.2126 * (data[i] / 255) + 0.7152 * (data[i + 1] / 255) + 0.0722 * (data[i + 2] / 255);
+          n++;
+        }
+        if (n > 0) setBrightness(sum / n);
+      } catch {
+        // tela contaminada por CORS ou falha de decodificação: fica sem saber, assume "escura" lá embaixo.
+      }
+    };
+    img.src = coverImage;
+    return () => { cancelled = true; };
+  }, [coverImage]);
+  return brightness;
+}
 
 /**
  * Keyframes for the camera: it never cuts — it continuously eases between these, each one either the full
@@ -61,13 +101,16 @@ const css = `
 .pierce-c-btn:hover{opacity:.82}
 .pierce-c-btn:active{transform:scale(.9)}
 @keyframes pierce-c-grain{0%,100%{opacity:.16}50%{opacity:.26}}
-@keyframes pierce-c-light-a{0%{transform:translateX(-30%) rotate(16deg)}100%{transform:translateX(230%) rotate(16deg)}}
-@keyframes pierce-c-light-b{0%{transform:translateX(-30%) rotate(-13deg)}100%{transform:translateX(230%) rotate(-13deg)}}`;
+@keyframes pierce-c-orb{0%,61%{left:-45%;opacity:0}72%{opacity:.07}85%{opacity:.07}100%{left:120%;opacity:0}}`;
 
-/** Duração e atraso do brilho determinados pela faixa, igual ao resto da câmera — nunca aleatório de verdade. */
-function lightTiming(trackId: string, salt: number): { duration: number; delay: number } {
-  const h = hashString(trackId + salt);
-  return { duration: 10 + (h % 7), delay: -((h >>> 4) % 17) };
+/**
+ * Timing da bola de luz: um ciclo bem mais longo que o da câmera (então ela não aparece toda hora), com
+ * duração/atraso/altura tirados do hash da faixa — "aleatório" o bastante pra não parecer um metrônomo,
+ * mas sem Math.random de verdade (a mesma faixa sempre se comporta igual).
+ */
+function orbTiming(trackId: string): { duration: number; delay: number; topPct: number } {
+  const h = hashString(`${trackId}:orb`);
+  return { duration: 42 + (h % 31), delay: -((h >>> 5) % 60), topPct: 6 + ((h >>> 11) % 46) };
 }
 
 /**
@@ -83,8 +126,8 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
   const pal = useTrackPalette(track);
   const lines = useTimedLines(track);
   const asciiSeed = useMemo(() => hashString(track.id) % 7, [track.id]);
-  const lightA = useMemo(() => lightTiming(track.id, 1), [track.id]);
-  const lightB = useMemo(() => lightTiming(track.id, 2), [track.id]);
+  const orb = useMemo(() => orbTiming(track.id), [track.id]);
+  const brightness = useCoverBrightness(track.coverImage);
 
   const real = useMemo(() => lines.map((l, i) => ({ l, i })).filter((x) => !x.l.gap), [lines]);
   const mo = momentAt(lines, t);
@@ -103,11 +146,11 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
   const nextLine = curRealPos >= 0 ? real[curRealPos + 1]?.l : real.find((r) => r.i >= mo.index)?.l;
   const base: React.CSSProperties = { font: "500 12px 'Arimo', sans-serif", color: 'rgba(255,255,255,.72)', textShadow: '0 1px 6px rgba(0,0,0,.8)' };
 
-  // Contraste negativo pro texto da letra: `pal.onA` já é a cor (branco ou tinta escura) que lê melhor
-  // em cima da própria paleta tirada da capa, então a letra sempre fica "oposta" ao efeito que colocamos
-  // na imagem (capa escura -> letra clara, capa clara -> letra escura), e harmônica porque o brilho da
-  // palavra cantada ainda usa a cor tirada da própria capa (pal.a).
-  const lyricIsLight = pal.onA === '#ffffff';
+  // Contraste negativo pro texto da letra, a partir do brilho de verdade da capa (não da paleta de UI):
+  // só vira texto escuro quando a foto é comprovadamente clara (brilho médio > 62%); em qualquer outro
+  // caso — incluindo enquanto o brilho ainda não carregou — a letra fica clara, que é o caso comum (capas
+  // de álbum tendem a ser médias/escuras, e o efeito que a gente põe em cima só escurece mais ainda).
+  const lyricIsLight = brightness === null || brightness <= 0.62;
   const lyricOn = lyricIsLight ? '255,255,255' : '20,20,43';
   const lyricHaloRgb = lyricIsLight ? '0,0,0' : '255,255,255';
   const lyricDim = `rgba(${lyricOn},.55)`;
@@ -153,20 +196,15 @@ export const ClipeView: React.FC<StageViewProps> = ({ track, progressMs, isPlayi
         {/* toque de cor da paleta da faixa */}
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${pal.a}, ${pal.deep})`, mixBlendMode: 'soft-light', opacity: 0.5, pointerEvents: 'none', transition: 'background 1s' }} />
 
-        {/* luzes passando: dois feixes diagonais varrendo a capa, puramente decorativos e determinísticos */}
+        {/* bola de luz: bem grande, amarela e suave, quase imperceptível, cortando a foto de um lado pro
+            outro só de vez em quando (a maior parte do ciclo ela fica invisível fora da tela). */}
         {!reduced && (
-          <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-            <div style={{
-              position: 'absolute', top: '-30%', left: '-10%', width: '45%', height: '160%',
-              background: 'linear-gradient(100deg, transparent 0%, rgba(255,255,255,.05) 38%, rgba(255,255,255,.3) 50%, rgba(255,255,255,.05) 62%, transparent 100%)',
-              mixBlendMode: 'screen', animation: `pierce-c-light-a ${lightA.duration}s linear infinite`, animationDelay: `${lightA.delay}s`,
-            }} />
-            <div style={{
-              position: 'absolute', top: '-30%', left: '-10%', width: '30%', height: '160%',
-              background: `linear-gradient(100deg, transparent 0%, transparent 40%, ${pal.a}55 50%, transparent 60%, transparent 100%)`,
-              mixBlendMode: 'color-dodge', animation: `pierce-c-light-b ${lightB.duration}s linear infinite`, animationDelay: `${lightB.delay}s`,
-            }} />
-          </div>
+          <div aria-hidden style={{
+            position: 'absolute', top: `${orb.topPct}%`, width: '85%', aspectRatio: '1', borderRadius: '50%', pointerEvents: 'none',
+            background: 'radial-gradient(circle, rgba(255,224,140,1) 0%, rgba(255,224,140,.4) 45%, rgba(255,224,140,0) 72%)',
+            filter: 'blur(26px)', mixBlendMode: 'screen',
+            animation: `pierce-c-orb ${orb.duration}s linear infinite`, animationDelay: `${orb.delay}s`,
+          }} />
         )}
 
         {/* escurecida no rodapé pra tudo ler em cima da própria foto */}
